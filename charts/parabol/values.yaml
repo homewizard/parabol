@@ -1,0 +1,246 @@
+nameOverride: ""
+fullnameOverride: ""
+
+# =====================================================================
+# Parabol app image
+# =====================================================================
+# No public image exists for Parabol yet. Build one from
+# docker/images/parabol-ubi/dockerfiles/basic.dockerfile and push it to a
+# registry this cluster can pull from, then point these values at it.
+image:
+  registry: ""
+  repository: "replace-me/parabol"
+  tag: "latest"
+  pullPolicy: IfNotPresent
+  pullSecrets: []
+    # - name: my-registry-creds
+
+# =====================================================================
+# Parabol web server (runs `node dist/web.js` directly - see README for why)
+# =====================================================================
+parabol:
+  # WARNING: this chart hardcodes a single SERVER_ID for the web workload
+  # (see generateUID.ts - it must be a globally unique integer 0-1023 used
+  # for Snowflake-style ID generation). Running more than 1 replica with the
+  # same SERVER_ID would mint colliding IDs across pods. Do not raise this
+  # above 1 without first reworking SERVER_ID allocation per-pod (e.g. a
+  # StatefulSet with an ordinal-derived offset) - the chart enforces this
+  # with a hard failure in templates/deployment.yaml.
+  replicaCount: 1
+  serverId: 0
+
+  containerPort: 3000
+
+  env:
+    host: "parabol.example.com"
+    proto: "https"
+    fileStoreProvider: "local"
+    cdnBaseUrl: ""
+    mailProvider: "debug"
+    enableMetrics: false
+    metricsPort: 9090
+    chronos:
+      batchEmails: "0 0 10 * * *"
+      scheduleJobs: "0 */10 * * * *"
+      updateTokens: "0 0 0 1,15 * *"
+      processRecurrence: "0 */5 * * * *"
+      autopause: "0 0 5 * * *"
+      prunePg: "0 0 6 * * *"
+    # Free-form extra non-secret env vars (e.g. OAuth client IDs), merged
+    # verbatim into the ConfigMap.
+    extra: {}
+
+  # Secret-worthy values. Left blank, these are auto-generated on first
+  # install and preserved across upgrades - see README "Secret handling".
+  secrets:
+    serverSecret: ""
+    # Free-form extra secret env vars (e.g. STRIPE_SECRET_KEY), merged
+    # verbatim into the app Secret.
+    extra: {}
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 768Mi
+    limits:
+      cpu: "1"
+      memory: 1536Mi
+
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: http
+    initialDelaySeconds: 20
+    periodSeconds: 15
+    timeoutSeconds: 5
+    failureThreshold: 6
+  readinessProbe:
+    httpGet:
+      path: /ready
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  podAnnotations: {}
+  # fsGroup only (not runAsNonRoot): this applies to every container in the
+  # pod, including the wait-for-postgres initContainer, which uses the
+  # upstream pgvector/pgvector image and runs as root like the standard
+  # Postgres image. Only the Parabol app image (built with USER node) is
+  # actually non-root, so runAsNonRoot is enforced per-container below
+  # instead, on the containers that run that image.
+  podSecurityContext:
+    fsGroup: 1000
+  securityContext:
+    allowPrivilegeEscalation: false
+    runAsNonRoot: true
+    # The image declares USER node (a name, not a numeric UID), so
+    # Kubernetes can't verify non-root from image metadata alone -
+    # runAsUser must be set explicitly. 1000 is the node user's actual
+    # uid/gid in the built image (confirmed via `id node`).
+    runAsUser: 1000
+    runAsGroup: 1000
+    # Stays false: FILE_STORE_PROVIDER=local writes to ~/parabol/self-hosted
+    # (see the Dockerfile). Flip to true if fileStoreProvider is s3/gcs.
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop: ["ALL"]
+
+service:
+  type: ClusterIP
+  port: 3000
+
+ingress:
+  enabled: false
+  className: "tailscale"
+  annotations: {}
+  hosts:
+    - host: parabol.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+# =====================================================================
+# Postgres (pgvector) - custom StatefulSet, NOT a Bitnami subchart.
+# Bitnami's postgresql chart hardcodes Bitnami-specific env var names
+# (POSTGRESQL_PASSWORD vs POSTGRES_PASSWORD), data paths
+# (/bitnami/postgresql/data), and entrypoint logic tied to the bitnami/*
+# image specifically - swapping in pgvector/pgvector would break its init
+# logic. pgvector/pgvector is a drop-in for the official postgres image,
+# so a minimal custom template is both simpler and more correct here.
+# =====================================================================
+postgres:
+  enabled: true
+  image:
+    repository: pgvector/pgvector
+    tag: "0.8.2-pg18-trixie"
+    pullPolicy: IfNotPresent
+  auth:
+    user: pgparaboladmin
+    database: parabol-saas
+    password: ""
+    existingSecret: ""
+  service:
+    port: 5432
+  persistence:
+    enabled: true
+    storageClassName: "standard-rwo"
+    size: 10Gi
+    accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# =====================================================================
+# Valkey (Redis-compatible cache/pubsub) - custom Deployment, NOT a
+# Bitnami subchart, for the same reasons as postgres above.
+# =====================================================================
+valkey:
+  enabled: true
+  image:
+    repository: valkey/valkey
+    tag: "9.0-alpine"
+    pullPolicy: IfNotPresent
+  # Matches the dev docker-compose: no persistence needed for a cache.
+  extraArgs: ["--save", ""]
+  service:
+    port: 6379
+  persistence:
+    enabled: false
+    storageClassName: "standard-rwo"
+    size: 1Gi
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+# =====================================================================
+# Optional AI embeddings: Parabol's own embedder worker process plus the
+# Hugging Face text-embeddings-inference model server it talks to.
+# Disabled by default - heavyweight (downloads an ML model on startup)
+# and not required for core Parabol functionality.
+# =====================================================================
+embedder:
+  enabled: false
+  # See the SERVER_ID warning under `parabol` above - same constraint
+  # applies here. 5 matches the original pm2.config.js default.
+  serverId: 5
+  workers: 1
+
+  image:
+    # Reuses the main Parabol app image; overridable independently if ever needed.
+    registry: ""
+    repository: ""
+    tag: ""
+    pullPolicy: IfNotPresent
+
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  inference:
+    image:
+      repository: ghcr.io/huggingface/text-embeddings-inference
+      tag: "cpu-1.8"
+      pullPolicy: IfNotPresent
+    modelId: "Svenni551/Qwen3-Embedding-0.6B-ONNX-INT8"
+    maxTokens: 4096
+    service:
+      port: 80
+    persistence:
+      enabled: true
+      storageClassName: "standard-rwo"
+      size: 5Gi
+      accessModes: ["ReadWriteOnce"]
+    resources:
+      requests:
+        cpu: 500m
+        memory: 1Gi
+      limits:
+        cpu: "2"
+        memory: 4Gi
+
+# =====================================================================
+# Misc
+# =====================================================================
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

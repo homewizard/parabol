@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "parabol.fullname" . }}
+  labels:
+    {{- include "parabol.labels" . | nindent 4 }}
+data:
+  HOST: {{ .Values.parabol.env.host | quote }}
+  PORT: {{ .Values.parabol.containerPort | quote }}
+  PROTO: {{ .Values.parabol.env.proto | quote }}
+  POSTGRES_USER: {{ .Values.postgres.auth.user | quote }}
+  POSTGRES_DB: {{ .Values.postgres.auth.database | quote }}
+  POSTGRES_PORT: {{ .Values.postgres.service.port | quote }}
+  POSTGRES_USE_PGVECTOR: "true"
+  FILE_STORE_PROVIDER: {{ .Values.parabol.env.fileStoreProvider | quote }}
+  CDN_BASE_URL: {{ .Values.parabol.env.cdnBaseUrl | quote }}
+  MAIL_PROVIDER: {{ .Values.parabol.env.mailProvider | quote }}
+  ENABLE_METRICS: {{ .Values.parabol.env.enableMetrics | quote }}
+  METRICS_PORT: {{ .Values.parabol.env.metricsPort | quote }}
+  CHRONOS_BATCH_EMAILS: {{ .Values.parabol.env.chronos.batchEmails | quote }}
+  CHRONOS_SCHEDULE_JOBS: {{ .Values.parabol.env.chronos.scheduleJobs | quote }}
+  CHRONOS_UPDATE_TOKENS: {{ .Values.parabol.env.chronos.updateTokens | quote }}
+  CHRONOS_PROCESS_RECURRENCE: {{ .Values.parabol.env.chronos.processRecurrence | quote }}
+  CHRONOS_AUTOPAUSE: {{ .Values.parabol.env.chronos.autopause | quote }}
+  CHRONOS_PRUNE_PG: {{ .Values.parabol.env.chronos.prunePg | quote }}
+  {{- range $k, $v := .Values.parabol.env.extra }}
+  {{ $k }}: {{ $v | quote }}
+  {{- end }}

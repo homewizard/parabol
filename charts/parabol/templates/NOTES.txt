@@ -1,0 +1,21 @@
+Parabol has been deployed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+Check status:
+  kubectl get pods -n {{ .Release.Namespace }}
+
+{{- if eq .Values.image.repository "replace-me/parabol" }}
+
+NOTE: image.repository is still set to the placeholder "replace-me/parabol".
+The main app Deployment will sit in ImagePullBackOff until you build the
+image from docker/images/parabol-ubi/dockerfiles/basic.dockerfile, push it
+to a registry this cluster can reach, and re-run:
+  helm upgrade {{ .Release.Name }} <chart> -n {{ .Release.Namespace }} \
+    --set image.repository=<your-registry>/parabol --set image.tag=<your-tag>
+{{- end }}
+
+Access the app (once the image is real) via port-forward:
+  kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "parabol.fullname" . }} 8080:{{ .Values.service.port }}
+  open http://localhost:8080
+
+Migration logs (runs as an initContainer on every web pod rollout):
+  kubectl logs -n {{ .Release.Namespace }} deploy/{{ include "parabol.fullname" . }} -c migrate
