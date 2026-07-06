@@ -93,12 +93,19 @@ parabol:
     serverSecret: ""
     # OAuth client secrets, paired with the client IDs under parabol.env.auth
     # above. Required (chart fails the render) when the matching provider is
-    # enabled.
+    # enabled: either clientSecret directly, or existingSecret to source it
+    # from a Secret you manage out-of-band (e.g. created via `kubectl create
+    # secret`, SealedSecrets, External Secrets Operator) instead of putting
+    # the raw value in Helm values/state. existingSecret takes precedence
+    # over clientSecret when both are set, and must contain a key named
+    # exactly GOOGLE_OAUTH_CLIENT_SECRET / MICROSOFT_CLIENT_SECRET.
     auth:
       google:
         clientSecret: ""
+        existingSecret: ""
       microsoft:
         clientSecret: ""
+        existingSecret: ""
     # Free-form extra secret env vars (e.g. STRIPE_SECRET_KEY), merged
     # verbatim into the app Secret.
     extra: {}

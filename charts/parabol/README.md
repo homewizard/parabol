@@ -61,6 +61,23 @@ parabol:
 
 The chart fails the render if all three are disabled at once (nobody could log in), and fails if a provider is enabled without its client ID/secret. These map straight to Parabol's own `AUTH_INTERNAL_DISABLED` / `AUTH_GOOGLE_DISABLED` / `AUTH_MICROSOFT_DISABLED` / `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` / `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` env vars (see `.env.example`). Both the login-page buttons and the server-side mutations respect these — the `preDeploy` initContainer re-bakes the client's `index.html` from the current env on every pod rollout, so changing these and running `helm upgrade` is enough; no image rebuild needed.
 
+To keep an OAuth client secret out of Helm values/release state entirely, set `parabol.secrets.auth.google.existingSecret` (or `.microsoft.existingSecret`) to the name of a Secret you manage out-of-band — e.g.:
+
+```sh
+kubectl create secret generic parabol-google-oauth -n parabol \
+  --from-literal=GOOGLE_OAUTH_CLIENT_SECRET='<your-client-secret>'
+```
+
+```yaml
+parabol:
+  secrets:
+    auth:
+      google:
+        existingSecret: "parabol-google-oauth"
+```
+
+The referenced Secret must contain a key named exactly `GOOGLE_OAUTH_CLIENT_SECRET` (or `MICROSOFT_CLIENT_SECRET`). `existingSecret` takes precedence over `clientSecret` when both are set.
+
 The Google/Microsoft OAuth redirect URIs are hardcoded per-provider (not configurable) as `<proto>://<host>/auth/google` and `<proto>://<host>/auth/microsoft` respectively — register exactly those in the Google Cloud Console OAuth client / Azure AD app registration.
 
 ### Enterprise tier for self-hosting (`IS_ENTERPRISE`)

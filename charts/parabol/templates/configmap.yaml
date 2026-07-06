@@ -6,16 +6,16 @@
 {{- if not $auth.google.clientId }}
 {{- fail "parabol.env.auth.google.clientId is required when parabol.env.auth.google.enabled=true" }}
 {{- end }}
-{{- if not .Values.parabol.secrets.auth.google.clientSecret }}
-{{- fail "parabol.secrets.auth.google.clientSecret is required when parabol.env.auth.google.enabled=true" }}
+{{- if not (or .Values.parabol.secrets.auth.google.clientSecret .Values.parabol.secrets.auth.google.existingSecret) }}
+{{- fail "parabol.secrets.auth.google.clientSecret or .existingSecret is required when parabol.env.auth.google.enabled=true" }}
 {{- end }}
 {{- end }}
 {{- if $auth.microsoft.enabled }}
 {{- if not $auth.microsoft.clientId }}
 {{- fail "parabol.env.auth.microsoft.clientId is required when parabol.env.auth.microsoft.enabled=true" }}
 {{- end }}
-{{- if not .Values.parabol.secrets.auth.microsoft.clientSecret }}
-{{- fail "parabol.secrets.auth.microsoft.clientSecret is required when parabol.env.auth.microsoft.enabled=true" }}
+{{- if not (or .Values.parabol.secrets.auth.microsoft.clientSecret .Values.parabol.secrets.auth.microsoft.existingSecret) }}
+{{- fail "parabol.secrets.auth.microsoft.clientSecret or .existingSecret is required when parabol.env.auth.microsoft.enabled=true" }}
 {{- end }}
 {{- end }}
 apiVersion: v1

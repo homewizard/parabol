@@ -172,8 +172,10 @@ envFrom:
 
 {{/*
 Computed env vars that can't live in the static ConfigMap because they're
-derived from chart-managed resource names (Postgres/Valkey Service DNS).
-Shared by the web Deployment, embedder Deployment, and migration Job.
+derived from chart-managed resource names (Postgres/Valkey Service DNS), or
+sourced from a Secret outside the chart's own (Google/Microsoft OAuth client
+secrets via existingSecret). Shared by the web Deployment, embedder
+Deployment, and migration Job.
 */}}
 {{- define "parabol.computedEnv" -}}
 env:
@@ -181,6 +183,20 @@ env:
     value: {{ include "parabol.postgres.fullname" . }}
   - name: REDIS_URL
     value: "redis://{{ include "parabol.valkey.fullname" . }}:{{ .Values.valkey.service.port }}"
+  {{- if .Values.parabol.secrets.auth.google.existingSecret }}
+  - name: GOOGLE_OAUTH_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: {{ .Values.parabol.secrets.auth.google.existingSecret }}
+        key: GOOGLE_OAUTH_CLIENT_SECRET
+  {{- end }}
+  {{- if .Values.parabol.secrets.auth.microsoft.existingSecret }}
+  - name: MICROSOFT_CLIENT_SECRET
+    valueFrom:
+      secretKeyRef:
+        name: {{ .Values.parabol.secrets.auth.microsoft.existingSecret }}
+        key: MICROSOFT_CLIENT_SECRET
+  {{- end }}
 {{- end }}
 
 {{/*
