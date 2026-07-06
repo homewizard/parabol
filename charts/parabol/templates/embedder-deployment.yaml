@@ -1,0 +1,46 @@
+{{- if .Values.embedder.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "parabol.embedder.fullname" . }}
+  labels:
+    {{- include "parabol.labels" . | nindent 4 }}
+    app.kubernetes.io/component: embedder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "parabol.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: embedder
+  template:
+    metadata:
+      labels:
+        {{- include "parabol.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: embedder
+    spec:
+      serviceAccountName: {{ include "parabol.serviceAccountName" . }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "parabol.waitForPostgresInitContainer" . | nindent 8 }}
+      containers:
+        - name: embedder
+          image: {{ include "parabol.embedder.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args: ["node", "dist/embedder.js"]
+          securityContext:
+            {{- toYaml .Values.parabol.securityContext | nindent 12 }}
+          {{- include "parabol.envFrom" . | nindent 10 }}
+          {{- include "parabol.computedEnv" . | nindent 10 }}
+            - name: SERVER_ID
+              value: {{ .Values.embedder.serverId | quote }}
+            - name: AI_EMBEDDER_WORKERS
+              value: {{ .Values.embedder.workers | quote }}
+            - name: AI_EMBEDDING_MODELS
+              value: |-
+                [{"model": "text-embeddings-inference:{{ .Values.embedder.inference.modelId }}", "url": "http://{{ include "parabol.embedderInference.fullname" . }}:{{ .Values.embedder.inference.service.port }}/", "maxTokens": {{ .Values.embedder.inference.maxTokens }}}]
+          resources:
+            {{- toYaml .Values.embedder.resources | nindent 12 }}
+{{- end }}

@@ -1,0 +1,15 @@
+{{- if and .Values.valkey.enabled .Values.valkey.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "parabol.valkey.fullname" . }}
+  labels:
+    {{- include "parabol.labels" . | nindent 4 }}
+    app.kubernetes.io/component: valkey
+spec:
+  accessModes: ["ReadWriteOnce"]
+  storageClassName: {{ .Values.valkey.persistence.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.valkey.persistence.size }}
+{{- end }}

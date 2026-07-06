@@ -1,0 +1,16 @@
+{{- if and .Values.embedder.enabled .Values.embedder.inference.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "parabol.embedderInference.fullname" . }}
+  labels:
+    {{- include "parabol.labels" . | nindent 4 }}
+    app.kubernetes.io/component: embedder-inference
+spec:
+  accessModes:
+    {{- toYaml .Values.embedder.inference.persistence.accessModes | nindent 4 }}
+  storageClassName: {{ .Values.embedder.inference.persistence.storageClassName }}
+  resources:
+    requests:
+      storage: {{ .Values.embedder.inference.persistence.size }}
+{{- end }}

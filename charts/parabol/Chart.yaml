@@ -1,0 +1,15 @@
+apiVersion: v2
+name: parabol
+description: Self-hosted deployment of Parabol (open-source retro/meeting tool) with bundled Postgres (pgvector) and Valkey
+type: application
+version: 0.1.0
+appVersion: "13.28.0"
+home: https://github.com/ParabolInc/parabol
+sources:
+  - https://github.com/ParabolInc/parabol
+keywords:
+  - parabol
+  - retrospective
+  - agile
+  - postgres
+  - pgvector

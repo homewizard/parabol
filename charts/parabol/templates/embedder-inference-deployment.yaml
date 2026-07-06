@@ -1,0 +1,59 @@
+{{- if .Values.embedder.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "parabol.embedderInference.fullname" . }}
+  labels:
+    {{- include "parabol.labels" . | nindent 4 }}
+    app.kubernetes.io/component: embedder-inference
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "parabol.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: embedder-inference
+  template:
+    metadata:
+      labels:
+        {{- include "parabol.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: embedder-inference
+    spec:
+      containers:
+        - name: text-embeddings-inference
+          image: "{{ .Values.embedder.inference.image.repository }}:{{ .Values.embedder.inference.image.tag }}"
+          imagePullPolicy: {{ .Values.embedder.inference.image.pullPolicy }}
+          args:
+            - "--model-id={{ .Values.embedder.inference.modelId }}"
+          ports:
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            {{- toYaml .Values.embedder.inference.resources | nindent 12 }}
+          {{- if .Values.embedder.inference.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          {{- end }}
+      {{- if .Values.embedder.inference.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "parabol.embedderInference.fullname" . }}
+      {{- end }}
+{{- end }}

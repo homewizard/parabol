@@ -1,0 +1,70 @@
+{{- if ne (.Values.parabol.replicaCount | int) 1 }}
+{{- fail "parabol.replicaCount must stay 1: this chart hardcodes a single SERVER_ID for the web workload (see values.yaml comment). Running >1 replica would mint colliding Snowflake-style IDs across pods until SERVER_ID allocation is reworked per-pod." }}
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "parabol.fullname" . }}
+  labels:
+    {{- include "parabol.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.parabol.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "parabol.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: web
+  template:
+    metadata:
+      labels:
+        {{- include "parabol.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: web
+      {{- with .Values.parabol.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ include "parabol.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.parabol.podSecurityContext | nindent 8 }}
+      {{- with .Values.image.pullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "parabol.waitForPostgresInitContainer" . | nindent 8 }}
+        {{- include "parabol.predeployInitContainer" . | nindent 8 }}
+      containers:
+        - name: parabol
+          image: {{ include "parabol.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # No `command:` override - flows through the image's own
+          # ENTRYPOINT ["docker-entrypoint.sh"] passthrough script.
+          args: ["node", "dist/web.js"]
+          securityContext:
+            {{- toYaml .Values.parabol.securityContext | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.parabol.containerPort }}
+              protocol: TCP
+          {{- include "parabol.envFrom" . | nindent 10 }}
+          {{- include "parabol.computedEnv" . | nindent 10 }}
+            - name: SERVER_ID
+              value: {{ .Values.parabol.serverId | quote }}
+          livenessProbe:
+            {{- toYaml .Values.parabol.livenessProbe | nindent 12 }}
+          readinessProbe:
+            {{- toYaml .Values.parabol.readinessProbe | nindent 12 }}
+          resources:
+            {{- toYaml .Values.parabol.resources | nindent 12 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
