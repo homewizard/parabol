@@ -34,6 +34,35 @@ The `preDeploy` bundle (`node dist/preDeploy.js`) runs as an `initContainer` on 
 
 Secrets (`SERVER_SECRET`, `POSTGRES_PASSWORD`) are auto-generated on first install and preserved across `helm upgrade` (they're read back from the existing Secret rather than regenerated, and marked `helm.sh/resource-policy: keep`). Override them explicitly via `parabol.secrets.serverSecret` / `postgres.auth.password` if you want deterministic values, or point `postgres.auth.existingSecret` at a Secret you manage yourself.
 
+### Login methods (`parabol.env.auth.*`)
+
+By default all three of Parabol's non-SSO login methods are available: email+password ("internal"), Google, and Microsoft (Azure AD/Entra ID). Toggle each independently:
+
+```yaml
+parabol:
+  env:
+    auth:
+      internal:
+        enabled: true   # email + password (also gates forgot/reset-password)
+      google:
+        enabled: false
+        clientId: ""    # OAuth 2.0 Client ID from Google Cloud Console
+      microsoft:
+        enabled: false
+        tenantId: "common"  # or a specific Azure AD tenant ID
+        clientId: ""        # Application (client) ID from the Azure AD app registration
+  secrets:
+    auth:
+      google:
+        clientSecret: ""
+      microsoft:
+        clientSecret: ""
+```
+
+The chart fails the render if all three are disabled at once (nobody could log in), and fails if a provider is enabled without its client ID/secret. These map straight to Parabol's own `AUTH_INTERNAL_DISABLED` / `AUTH_GOOGLE_DISABLED` / `AUTH_MICROSOFT_DISABLED` / `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` / `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` env vars (see `.env.example`). Both the login-page buttons and the server-side mutations respect these — the `preDeploy` initContainer re-bakes the client's `index.html` from the current env on every pod rollout, so changing these and running `helm upgrade` is enough; no image rebuild needed.
+
+The Google/Microsoft OAuth redirect URIs are hardcoded per-provider (not configurable) as `<proto>://<host>/auth/google` and `<proto>://<host>/auth/microsoft` respectively — register exactly those in the Google Cloud Console OAuth client / Azure AD app registration.
+
 ### Enterprise tier for self-hosting (`IS_ENTERPRISE`)
 
 `parabol.env.isEnterprise` defaults to `true`, which makes every **newly created** organization default to `enterprise` tier with no Stripe subscription involved — this is Parabol's own documented mechanism for self-hosted/PPMI deployments (`.env.example`, `packages/server/utils/defaultTier.ts`), not a paywall bypass. Set `parabol.env.isSingleOrg: true` alongside it if you want to lock the instance to a single organization.
