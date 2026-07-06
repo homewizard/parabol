@@ -108,12 +108,14 @@ const GenericAuthentication = (props: Props) => {
   return (
     <AuthenticationDialog ref={authDialogRef}>
       <DialogTitle>{title}</DialogTitle>
-      <DialogSubTitle>
-        <span>{actionCopy}</span>
-        <BrandedLink onClick={() => goToPage(counterActionSlug, location.search)}>
-          {counterAction}
-        </BrandedLink>
-      </DialogSubTitle>
+      {(isInternalAuthEnabled || isSSOAuthEnabled) && (
+        <DialogSubTitle>
+          <span>{actionCopy}</span>
+          <BrandedLink onClick={() => goToPage(counterActionSlug, location.search)}>
+            {counterAction}
+          </BrandedLink>
+        </DialogSubTitle>
+      )}
       {isGoogleAuthEnabled && (
         <GoogleOAuthButtonBlock
           isCreate={isCreate}
