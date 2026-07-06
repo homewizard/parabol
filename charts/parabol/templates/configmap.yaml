@@ -1,3 +1,23 @@
+{{- $auth := .Values.parabol.env.auth }}
+{{- if not (or $auth.internal.enabled $auth.google.enabled $auth.microsoft.enabled $auth.sso.enabled) }}
+{{- fail "At least one of parabol.env.auth.internal.enabled, .google.enabled, .microsoft.enabled, .sso.enabled must be true, or nobody will be able to log in." }}
+{{- end }}
+{{- if $auth.google.enabled }}
+{{- if not $auth.google.clientId }}
+{{- fail "parabol.env.auth.google.clientId is required when parabol.env.auth.google.enabled=true" }}
+{{- end }}
+{{- if not (or .Values.parabol.secrets.auth.google.clientSecret .Values.parabol.secrets.auth.google.existingSecret) }}
+{{- fail "parabol.secrets.auth.google.clientSecret or .existingSecret is required when parabol.env.auth.google.enabled=true" }}
+{{- end }}
+{{- end }}
+{{- if $auth.microsoft.enabled }}
+{{- if not $auth.microsoft.clientId }}
+{{- fail "parabol.env.auth.microsoft.clientId is required when parabol.env.auth.microsoft.enabled=true" }}
+{{- end }}
+{{- if not (or .Values.parabol.secrets.auth.microsoft.clientSecret .Values.parabol.secrets.auth.microsoft.existingSecret) }}
+{{- fail "parabol.secrets.auth.microsoft.clientSecret or .existingSecret is required when parabol.env.auth.microsoft.enabled=true" }}
+{{- end }}
+{{- end }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -8,6 +28,17 @@ data:
   HOST: {{ .Values.parabol.env.host | quote }}
   PORT: {{ .Values.parabol.containerPort | quote }}
   PROTO: {{ .Values.parabol.env.proto | quote }}
+  AUTH_INTERNAL_DISABLED: {{ not $auth.internal.enabled | quote }}
+  AUTH_GOOGLE_DISABLED: {{ not $auth.google.enabled | quote }}
+  AUTH_MICROSOFT_DISABLED: {{ not $auth.microsoft.enabled | quote }}
+  AUTH_SSO_DISABLED: {{ not $auth.sso.enabled | quote }}
+  {{- if $auth.google.enabled }}
+  GOOGLE_OAUTH_CLIENT_ID: {{ $auth.google.clientId | quote }}
+  {{- end }}
+  {{- if $auth.microsoft.enabled }}
+  MICROSOFT_TENANT_ID: {{ $auth.microsoft.tenantId | quote }}
+  MICROSOFT_CLIENT_ID: {{ $auth.microsoft.clientId | quote }}
+  {{- end }}
   POSTGRES_USER: {{ .Values.postgres.auth.user | quote }}
   POSTGRES_DB: {{ .Values.postgres.auth.database | quote }}
   POSTGRES_PORT: {{ .Values.postgres.service.port | quote }}
