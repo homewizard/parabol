@@ -36,7 +36,7 @@ Secrets (`SERVER_SECRET`, `POSTGRES_PASSWORD`) are auto-generated on first insta
 
 ### Login methods (`parabol.env.auth.*`)
 
-By default all three of Parabol's non-SSO login methods are available: email+password ("internal"), Google, and Microsoft (Azure AD/Entra ID). Toggle each independently:
+By default all of Parabol's login methods are available: email+password ("internal"), Google, Microsoft (Azure AD/Entra ID), and the SSO "enter your email to find your org's SAML provider" flow. Toggle each independently:
 
 ```yaml
 parabol:
@@ -51,6 +51,8 @@ parabol:
         enabled: false
         tenantId: "common"  # or a specific Azure AD tenant ID
         clientId: ""        # Application (client) ID from the Azure AD app registration
+      sso:
+        enabled: true   # set false too if you want ONLY the Google/Microsoft buttons, no email form
   secrets:
     auth:
       google:
@@ -59,7 +61,11 @@ parabol:
         clientSecret: ""
 ```
 
-The chart fails the render if all three are disabled at once (nobody could log in), and fails if a provider is enabled without its client ID/secret. These map straight to Parabol's own `AUTH_INTERNAL_DISABLED` / `AUTH_GOOGLE_DISABLED` / `AUTH_MICROSOFT_DISABLED` / `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` / `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` env vars (see `.env.example`). Both the login-page buttons and the server-side mutations respect these — the `preDeploy` initContainer re-bakes the client's `index.html` from the current env on every pod rollout, so changing these and running `helm upgrade` is enough; no image rebuild needed.
+**To hide the email/password form entirely (e.g. a Google-only instance), you must disable both `internal` and `sso`** — Parabol's client renders the email form whenever *either* is enabled (`packages/client/components/GenericAuthentication.tsx`), since with SSO on it doubles as the "enter your email to find your org's IdP" field. `internal.enabled: false` alone leaves a bare email input with a "Sign in with SSO" button.
+
+The chart fails the render if all four (`internal`/`google`/`microsoft`/`sso`) are disabled at once (nobody could log in), and fails if `google`/`microsoft` is enabled without its client ID/secret. These map straight to Parabol's own `AUTH_INTERNAL_DISABLED` / `AUTH_GOOGLE_DISABLED` / `AUTH_MICROSOFT_DISABLED` / `AUTH_SSO_DISABLED` / `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` / `MICROSOFT_TENANT_ID` / `MICROSOFT_CLIENT_ID` / `MICROSOFT_CLIENT_SECRET` env vars (see `.env.example`). Both the login-page buttons and the server-side mutations respect these.
+
+The Deployment's pod template carries a `checksum/config` / `checksum/secret` annotation derived from the ConfigMap/Secret content, so changing any of these values and running `helm upgrade` triggers an automatic rolling restart — no manual pod restart needed to pick up the new values. (The `preDeploy` initContainer also re-bakes the client's `index.html` from the current env on every pod start, so no image rebuild is needed either.)
 
 To keep an OAuth client secret out of Helm values/release state entirely, set `parabol.secrets.auth.google.existingSecret` (or `.microsoft.existingSecret`) to the name of a Secret you manage out-of-band — e.g.:
 
@@ -79,6 +85,16 @@ parabol:
 The referenced Secret must contain a key named exactly `GOOGLE_OAUTH_CLIENT_SECRET` (or `MICROSOFT_CLIENT_SECRET`). `existingSecret` takes precedence over `clientSecret` when both are set.
 
 The Google/Microsoft OAuth redirect URIs are hardcoded per-provider (not configurable) as `<proto>://<host>/auth/google` and `<proto>://<host>/auth/microsoft` respectively — register exactly those in the Google Cloud Console OAuth client / Azure AD app registration.
+
+#### Debugging Google `401: invalid_client` / "OAuth client was not found"
+
+This is Google rejecting the `client_id`, not a chart/server-side error. The client's OAuth popup builds its authorize URL directly from `GOOGLE_OAUTH_CLIENT_ID` (`packages/client/utils/GoogleClientManager.ts`), so the fastest way to find the actual value in use is to open the "Continue with Google" popup and read `client_id=` straight out of its address bar (`https://accounts.google.com/o/oauth2/v2/auth?client_id=...`) — that's the ground truth, independent of Helm/env plumbing. Compare it byte-for-byte against Cloud Console. Common causes:
+
+- Wrong GCP **project** — easy to mix up if you created a fresh project to dodge a per-project OAuth client quota.
+- Wrong client **type** — must be "Web application", not Desktop/Android/iOS/TV (those produce this exact error with Parabol's popup-based authorization-code flow).
+- The client was deleted or never finished creating.
+- Stale value: since `helm upgrade` alone doesn't restart pods unless something in the pod template changes, older chart versions without the `checksum/config` annotation (see above) could leave a pod running with a previously-baked, stale `GOOGLE_OAUTH_CLIENT_ID` — confirm with `kubectl exec -n <namespace> deploy/<release> -c parabol -- printenv GOOGLE_OAUTH_CLIENT_ID`.
+- Browser-side staleness: Parabol's client is a PWA with an offline service worker that can precache an old `index.html` (and thus an old baked-in client ID) from a previous visit. Hard-refresh or unregister the service worker (DevTools → Application → Service Workers) if you tested this instance before changing the client ID.
 
 ### Enterprise tier for self-hosting (`IS_ENTERPRISE`)
 

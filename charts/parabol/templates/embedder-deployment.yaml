@@ -17,6 +17,10 @@ spec:
       labels:
         {{- include "parabol.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: embedder
+      annotations:
+        # See templates/deployment.yaml - same envFrom-by-name gotcha applies here.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret-app.yaml") . | sha256sum }}
     spec:
       serviceAccountName: {{ include "parabol.serviceAccountName" . }}
       {{- with .Values.image.pullSecrets }}

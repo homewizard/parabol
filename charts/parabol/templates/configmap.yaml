@@ -1,6 +1,6 @@
 {{- $auth := .Values.parabol.env.auth }}
-{{- if not (or $auth.internal.enabled $auth.google.enabled $auth.microsoft.enabled) }}
-{{- fail "At least one of parabol.env.auth.internal.enabled, parabol.env.auth.google.enabled, parabol.env.auth.microsoft.enabled must be true, or nobody will be able to log in." }}
+{{- if not (or $auth.internal.enabled $auth.google.enabled $auth.microsoft.enabled $auth.sso.enabled) }}
+{{- fail "At least one of parabol.env.auth.internal.enabled, .google.enabled, .microsoft.enabled, .sso.enabled must be true, or nobody will be able to log in." }}
 {{- end }}
 {{- if $auth.google.enabled }}
 {{- if not $auth.google.clientId }}
@@ -31,6 +31,7 @@ data:
   AUTH_INTERNAL_DISABLED: {{ not $auth.internal.enabled | quote }}
   AUTH_GOOGLE_DISABLED: {{ not $auth.google.enabled | quote }}
   AUTH_MICROSOFT_DISABLED: {{ not $auth.microsoft.enabled | quote }}
+  AUTH_SSO_DISABLED: {{ not $auth.sso.enabled | quote }}
   {{- if $auth.google.enabled }}
   GOOGLE_OAUTH_CLIENT_ID: {{ $auth.google.clientId | quote }}
   {{- end }}

@@ -53,7 +53,7 @@ parabol:
     # via window.__ACTION__, baked in from AUTH_*_DISABLED env vars by the
     # preDeploy initContainer on every pod start - see
     # scripts/toolboxSrc/applyEnvVarsToClientAssets.ts). At least one of
-    # internal/google/microsoft must stay enabled or nobody can log in -
+    # internal/google/microsoft/sso must stay enabled or nobody can log in -
     # templates/configmap.yaml enforces this with a hard failure.
     auth:
       # Email + password login (also gates the forgot/reset-password mutations).
@@ -76,6 +76,17 @@ parabol:
         # path - see packages/server/utils/MicrosoftServerManager.ts):
         #   <proto>://<host>/auth/microsoft   (e.g. https://parabol.example.com/auth/microsoft)
         clientId: ""
+      # SAML SSO "enter your email to find your org's SSO provider" flow.
+      # Defaults to true to match vanilla Parabol's own default (unset
+      # AUTH_SSO_DISABLED). IMPORTANT: this independently controls whether
+      # the email input on the sign-in page renders - the internal
+      # (email+password) form is shown whenever internal.enabled OR sso
+      # .enabled is true (see packages/client/components/
+      # GenericAuthentication.tsx). Set this to false too if you want the
+      # login page to show ONLY the Google/Microsoft buttons with no email
+      # form at all.
+      sso:
+        enabled: true
     chronos:
       batchEmails: "0 0 10 * * *"
       scheduleJobs: "0 */10 * * * *"
