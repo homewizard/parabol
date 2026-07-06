@@ -39,6 +39,15 @@ parabol:
     mailProvider: "debug"
     enableMetrics: false
     metricsPort: 9090
+    # Makes new orgs default to enterprise tier with no Stripe billing
+    # involved - this is Parabol's own documented self-host/PPMI mechanism
+    # (see .env.example and packages/server/utils/defaultTier.ts), not a
+    # paywall bypass. Only affects orgs created AFTER this is set; existing
+    # orgs need a one-off admin action (see README).
+    isEnterprise: true
+    # Only relevant alongside isEnterprise: true - disables creating
+    # additional orgs, locking the instance to a single organization.
+    isSingleOrg: false
     chronos:
       batchEmails: "0 0 10 * * *"
       scheduleJobs: "0 */10 * * * *"
@@ -110,17 +119,35 @@ parabol:
 service:
   type: ClusterIP
   port: 3000
+  # For an internal GCP LoadBalancer with a stable DNS name (matching how
+  # other HomeWizard workloads on this cluster are exposed), set:
+  #   type: LoadBalancer
+  #   annotations:
+  #     cloud.google.com/load-balancer-type: "Internal"
+  #     external-dns.alpha.kubernetes.io/hostname: "parabol.spock.homewizard.internal"
+  # and set parabol.env.host to that same hostname.
+  annotations: {}
 
 ingress:
   enabled: false
-  className: "tailscale"
+  # Left blank to use the cluster's default Ingress controller (GKE's GCE
+  # ingress, matching how argocd/verdaccio/sonarqube are exposed on this
+  # cluster). Parabol's auth cookie is __Host-Http-authToken with
+  # Secure set (see packages/server/utils/authCookie.ts) - browsers
+  # silently drop it over plain HTTP, so TLS here isn't optional, it's
+  # required to log in at all.
+  className: ""
   annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-production
+    # kubernetes.io/ingress.allow-http: "false"
   hosts:
     - host: parabol.example.com
       paths:
         - path: /
           pathType: Prefix
   tls: []
+    # - hosts: ["parabol.example.com"]
+    #   secretName: parabol-example-com-tls
 
 # =====================================================================
 # Postgres (pgvector) - custom StatefulSet, NOT a Bitnami subchart.

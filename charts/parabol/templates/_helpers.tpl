@@ -126,16 +126,22 @@ Shared by the web Deployment and the embedder Deployment.
 {{- end }}
 
 {{/*
-Init container that runs the Kysely migrations bundle (node dist/migrate.js).
-Idempotent - safe to run on every pod start. Only wired into the web
-Deployment, which this chart hard-caps at replicaCount 1, so migrations
-run exactly once per rollout rather than racing across workloads.
+Init container that runs the preDeploy bundle (node dist/preDeploy.js):
+Kysely migrations, storing persisted GraphQL queries (queryMap.json) into
+the QueryMap table, priming integration providers from env, and pushing
+CDN assets (a no-op when FILE_STORE_PROVIDER=local, the default here).
+Storing persisted queries specifically is not optional - the production
+client only sends query hashes, and the server 404s (PersistedQueryNotFound)
+on every operation until QueryMap is populated. Idempotent - safe to run
+on every pod start. Only wired into the web Deployment, which this chart
+hard-caps at replicaCount 1, so this runs exactly once per rollout rather
+than racing across workloads.
 */}}
-{{- define "parabol.migrateInitContainer" -}}
-- name: migrate
+{{- define "parabol.predeployInitContainer" -}}
+- name: predeploy
   image: {{ include "parabol.image" . }}
   imagePullPolicy: {{ .Values.image.pullPolicy }}
-  args: ["node", "dist/migrate.js"]
+  args: ["node", "dist/preDeploy.js"]
   securityContext:
     {{- toYaml .Values.parabol.securityContext | nindent 4 }}
   {{- include "parabol.envFrom" . | nindent 2 }}

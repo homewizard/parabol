@@ -17,6 +17,8 @@ data:
   MAIL_PROVIDER: {{ .Values.parabol.env.mailProvider | quote }}
   ENABLE_METRICS: {{ .Values.parabol.env.enableMetrics | quote }}
   METRICS_PORT: {{ .Values.parabol.env.metricsPort | quote }}
+  IS_ENTERPRISE: {{ .Values.parabol.env.isEnterprise | quote }}
+  IS_SINGLE_ORG: {{ .Values.parabol.env.isSingleOrg | quote }}
   CHRONOS_BATCH_EMAILS: {{ .Values.parabol.env.chronos.batchEmails | quote }}
   CHRONOS_SCHEDULE_JOBS: {{ .Values.parabol.env.chronos.scheduleJobs | quote }}
   CHRONOS_UPDATE_TOKENS: {{ .Values.parabol.env.chronos.updateTokens | quote }}

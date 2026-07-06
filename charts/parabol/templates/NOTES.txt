@@ -17,5 +17,5 @@ Access the app (once the image is real) via port-forward:
   kubectl port-forward -n {{ .Release.Namespace }} svc/{{ include "parabol.fullname" . }} 8080:{{ .Values.service.port }}
   open http://localhost:8080
 
-Migration logs (runs as an initContainer on every web pod rollout):
-  kubectl logs -n {{ .Release.Namespace }} deploy/{{ include "parabol.fullname" . }} -c migrate
+Predeploy logs (migrations + persisted-query storage, runs as an initContainer on every web pod rollout):
+  kubectl logs -n {{ .Release.Namespace }} deploy/{{ include "parabol.fullname" . }} -c predeploy

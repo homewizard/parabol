@@ -32,7 +32,7 @@ spec:
       {{- end }}
       initContainers:
         {{- include "parabol.waitForPostgresInitContainer" . | nindent 8 }}
-        {{- include "parabol.migrateInitContainer" . | nindent 8 }}
+        {{- include "parabol.predeployInitContainer" . | nindent 8 }}
       containers:
         - name: parabol
           image: {{ include "parabol.image" . }}
