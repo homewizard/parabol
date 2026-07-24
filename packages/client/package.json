@@ -90,7 +90,7 @@
     "js-cookie": "^3.0.5",
     "jszip": "^3.10.1",
     "jwt-decode": "^2.1.0",
-    "linkify-it": "^2.0.3",
+    "linkify-it": "^5.0.2",
     "monaco-editor": "^0.52.2",
     "monaco-graphql": "^1.7.3",
     "motion": "^12.40.0",
