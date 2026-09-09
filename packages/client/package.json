@@ -75,7 +75,7 @@
     "@zxcvbn-ts/language-en": "^3.0.2",
     "cleave.js": "^1.6.0",
     "clsx": "^1.2.1",
-    "csv-parse": "^6.1.0",
+    "csv-parse": "^7.0.2",
     "date-fns": "^2.29.3",
     "dayjs": "^1.11.3",
     "dompurify": "^3.4.0",
