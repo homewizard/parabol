@@ -2,13 +2,12 @@ import {useState} from 'react'
 import {useNavigate} from 'react-router'
 import {SALES_EMAIL} from '~/utils/constants'
 import useAtmosphere from '../hooks/useAtmosphere'
+import {Button} from '../ui/Button/Button'
 import {Dialog} from '../ui/Dialog/Dialog'
 import {DialogActions} from '../ui/Dialog/DialogActions'
 import {DialogContent} from '../ui/Dialog/DialogContent'
 import {DialogTitle} from '../ui/Dialog/DialogTitle'
 import SendClientSideEvent from '../utils/SendClientSideEvent'
-import PrimaryButton from './PrimaryButton'
-import SecondaryButton from './SecondaryButton'
 
 interface Props {
   isOpen: boolean
@@ -52,20 +51,20 @@ const StartMeetingUpgradeModal = (props: Props) => {
     <Dialog isOpen={isOpen} onClose={isHardBlock ? undefined : onClose}>
       <DialogContent noClose={isHardBlock} className='text-center'>
         <DialogTitle>{title}</DialogTitle>
-        <p className='mt-2 text-slate-700 text-sm leading-5'>
+        <p className='mt-2 text-fg-primary text-sm leading-5'>
           {'Your company has run '}
-          <span className='font-semibold text-sky-500'>{meetingCount} meetings</span>
+          <span className='font-semibold text-accent'>{meetingCount} meetings</span>
           {' on Parabol and currently has '}
-          <span className='font-semibold text-sky-500'>{teamCount} active teams</span>
+          <span className='font-semibold text-accent'>{teamCount} active teams</span>
           {'. '}
           {isHardBlock
             ? "You've exceeded the free tier trial period. Please upgrade to continue running meetings."
             : 'This exceeds the 2-team free tier limit. Upgrade your team now to prevent interruption.'}
         </p>
-        <p className='mt-2 text-slate-700 text-sm leading-5'>
+        <p className='mt-2 text-fg-primary text-sm leading-5'>
           {'Something not right? Reach out to '}
           <a
-            className={'font-semibold text-sky-500'}
+            className={'font-semibold text-accent'}
             href={`mailto:${SALES_EMAIL}`}
             rel='noopener noreferrer'
             target='_blank'
@@ -75,18 +74,18 @@ const StartMeetingUpgradeModal = (props: Props) => {
           </a>
         </p>
         <DialogActions className='flex-col items-center justify-center gap-2'>
-          <PrimaryButton size='medium' onClick={goToUpgrade}>
+          <Button variant='primary' size='md' onClick={goToUpgrade}>
             {'Upgrade Now'}
-          </PrimaryButton>
+          </Button>
           {!isHardBlock && onStartAnyway && (
-            <SecondaryButton size='medium' onClick={onStartAnyway}>
+            <Button variant='outline' size='md' onClick={onStartAnyway}>
               {'Start Anyway'}
-            </SecondaryButton>
+            </Button>
           )}
           {!isHardBlock && !onStartAnyway && (
-            <SecondaryButton size='medium' onClick={onClose}>
+            <Button variant='outline' size='md' onClick={onClose}>
               {'Upgrade Later'}
-            </SecondaryButton>
+            </Button>
           )}
         </DialogActions>
       </DialogContent>

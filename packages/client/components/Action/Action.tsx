@@ -17,6 +17,9 @@ const AuthenticationPage = lazy(
   () => import(/* webpackChunkName: 'AuthenticationPage' */ '../AuthenticationPage')
 )
 const DemoMeeting = lazy(() => import(/* webpackChunkName: 'DemoMeeting' */ '../DemoMeeting'))
+const TeamHealthDemoPage = lazy(
+  () => import(/* webpackChunkName: 'TeamHealthDemoPage' */ '../TeamHealthDemo/TeamHealthDemoPage')
+)
 const DemoSummary = lazy(() => import(/* webpackChunkName: 'DemoSummary' */ '../DemoSummary'))
 const AuthProvider = lazy(() => import(/* webpackChunkName: 'AuthProvider' */ '../AuthProvider'))
 const SAMLRedirect = lazy(() => import(/* webpackChunkName: 'SAMLRedirect' */ '../SAMLRedirect'))
@@ -36,6 +39,8 @@ const PageRoot = lazy(
 const OAuthAuthorizePage = lazy(
   () => import(/* webpackChunkName: 'OAuthAuthorizePage' */ '../OAuthAuthorizePage')
 )
+// The editor stack is a third of the entry bundle & the sign in pages do not use it
+const TipTapLayout = lazy(() => import(/* webpackChunkName: 'TipTapLayout' */ '../TipTapLayout'))
 
 const Action = memo(() => {
   useServiceWorkerUpdater()
@@ -54,7 +59,10 @@ const Action = memo(() => {
       <ErrorBoundary>
         <Snackbar />
         <Suspense fallback={<LoadingComponent spinnerSize={LoaderSize.WHOLE_PAGE} />}>
-          <AnalyticsPage />
+          {/* Nested so analytics never holds up the first route, but still mounts no earlier than it */}
+          <Suspense fallback={null}>
+            <AnalyticsPage />
+          </Suspense>
           {isGlobalBannerEnabled && (
             <Banner bgColor={bannerBgColor} color={bannerColor} text={bannerText} />
           )}
@@ -73,9 +81,7 @@ const Action = memo(() => {
               />
               <Route path='/auth/:provider' element={<AuthProvider />} />
               <Route path='/saml-redirect' element={<SAMLRedirect />} />
-              <Route path='/retrospective-demo/*' element={<DemoMeeting />} />
-              <Route path='/retrospective-demo-summary/:urlAction' element={<DemoSummary />} />
-              <Route path='/retrospective-demo-summary' element={<DemoSummary />} />
+              <Route path='/team-health-demo/*' element={<TeamHealthDemoPage />} />
               {isInternalAuthEnabled && (
                 <Route
                   path='/forgot-password'
@@ -100,7 +106,13 @@ const Action = memo(() => {
               {!isAuthenticated && (
                 <Route path='/pages/:pageSlug' element={<PageRoot viewerRef={null} isPublic />} />
               )}
-              <Route path='/*' element={<PrivateRoutes />} />
+              {/* Any route that renders a useTipTapContext consumer must be a child of TipTapLayout */}
+              <Route element={<TipTapLayout />}>
+                <Route path='/retrospective-demo/*' element={<DemoMeeting />} />
+                <Route path='/retrospective-demo-summary/:urlAction' element={<DemoSummary />} />
+                <Route path='/retrospective-demo-summary' element={<DemoSummary />} />
+                <Route path='/*' element={<PrivateRoutes />} />
+              </Route>
             </Routes>
           </div>
         </Suspense>

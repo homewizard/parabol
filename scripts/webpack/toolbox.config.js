@@ -41,20 +41,12 @@ module.exports = {
   target: 'node',
   externals: [
     nodeExternals({
-      allowlist: [/parabol-client/, /parabol-server/, /@dicebear/]
+      allowlist: [/parabol-client/, /parabol-server/]
     })
   ],
   plugins: [
     new webpack.DefinePlugin({
       __PRODUCTION__: true
-    }),
-    new webpack.IgnorePlugin({
-      resourceRegExp: /^exiftool-vendored$/,
-      contextRegExp: /@dicebear/
-    }),
-    new webpack.IgnorePlugin({
-      resourceRegExp: /^@resvg\/resvg-js$/,
-      contextRegExp: /@dicebear/
     })
     // new CircularDependencyPlugin({
     //   // `onStart` is called before the cycle detection starts
@@ -79,7 +71,7 @@ module.exports = {
   ],
   module: {
     rules: [
-      ...transformRules(PROJECT_ROOT, true),
+      ...transformRules(PROJECT_ROOT, {isProd: true}),
       {
         test: /\.js$/,
         include: [path.join(SERVER_ROOT), path.join(CLIENT_ROOT)],

@@ -1,5 +1,3 @@
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown'
-import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp'
 import graphql from 'babel-plugin-relay/macro'
 import {useEffect, useRef, useState} from 'react'
 import {useFragment} from 'react-relay'
@@ -9,7 +7,11 @@ import type {ActivityDetailsSidebar_teams$key} from '~/__generated__/ActivityDet
 import type {ActivityDetailsSidebar_template$key} from '~/__generated__/ActivityDetailsSidebar_template.graphql'
 import StartRetrospectiveMutation from '~/mutations/StartRetrospectiveMutation'
 import StartSprintPokerMutation from '~/mutations/StartSprintPokerMutation'
-import UpdateReflectTemplateScopeMutation from '~/mutations/UpdateReflectTemplateScopeMutation'
+import UpdateTemplateScopeMutation from '~/mutations/UpdateTemplateScopeMutation'
+import {
+  KeyboardArrowDown as KeyboardArrowDownIcon,
+  KeyboardArrowUp as KeyboardArrowUpIcon
+} from '~/ui/icons'
 import type {MeetingTypeEnum} from '../../__generated__/ActivityDetailsQuery.graphql'
 import type {CreateGcalEventInput} from '../../__generated__/StartRetrospectiveMutation.graphql'
 import useAtmosphere from '../../hooks/useAtmosphere'
@@ -18,18 +20,18 @@ import SelectTemplateMutation from '../../mutations/SelectTemplateMutation'
 import StartCheckInMutation from '../../mutations/StartCheckInMutation'
 import StartTeamPromptMutation from '../../mutations/StartTeamPromptMutation'
 import type {CompletedHandler} from '../../types/relayMutations'
+import {Button} from '../../ui/Button/Button'
 import {cn} from '../../ui/cn'
 import sortByTier from '../../utils/sortByTier'
-import FlatPrimaryButton from '../FlatPrimaryButton'
 import NewMeetingActionsCurrentMeetings from '../NewMeetingActionsCurrentMeetings'
 import NewMeetingSettingsToggleAnonymity from '../NewMeetingSettingsToggleAnonymity'
 import NewMeetingSettingsToggleCheckIn from '../NewMeetingSettingsToggleCheckIn'
 import NewMeetingSettingsToggleReviewPastTasks from '../NewMeetingSettingsToggleReviewPastTasks'
 import NewMeetingSettingsToggleTeamHealth from '../NewMeetingSettingsToggleTeamHealth'
-import NewMeetingTeamPicker from '../NewMeetingTeamPicker'
 import StartMeetingUpgradeModal from '../StartMeetingUpgradeModal'
 import StyledError from '../StyledError'
 import StyledLink from '../StyledLink'
+import TeamPicker from '../TeamPicker/TeamPicker'
 import ScheduleMeetingButton from './ScheduleMeetingButton'
 
 interface Props {
@@ -91,8 +93,7 @@ const ActivityDetailsSidebar = (props: Props) => {
           ...NewMeetingSettingsToggleCheckIn_settings
         }
         ...NewMeetingSettingsToggleTeamHealth_team
-        ...NewMeetingTeamPicker_selectedTeam
-        ...NewMeetingTeamPicker_teams
+        ...TeamPicker_teams
         ...NewMeetingActionsCurrentMeetings_team
         ...ScheduleMeetingButton_team
         ...ScheduleDialog_team
@@ -137,7 +138,7 @@ const ActivityDetailsSidebar = (props: Props) => {
   // user has no teams
   if (!selectedTeam)
     return (
-      <div className='flex w-full flex-col items-center border-slate-300 border-t border-solid bg-white px-4 pt-2 lg:top-0 lg:right-0 lg:h-full lg:w-96 lg:flex-1 lg:border-l lg:pt-14'>
+      <div className='flex w-full flex-col items-center border-hairline border-t border-solid bg-surface-card px-4 pt-2 lg:top-0 lg:right-0 lg:h-full lg:w-96 lg:flex-1 lg:border-l lg:pt-14'>
         <div className='self-center italic'>You have no teams to start a meeting with!</div>
         <StyledLink to='/newteam'>Create a team</StyledLink>
       </div>
@@ -184,19 +185,7 @@ const ActivityDetailsSidebar = (props: Props) => {
     submitMutation()
     const upgradeAwareOnCompleted = makeUpgradeAwareOnCompleted(onCompleted)
     const upgradeAwareOnError = makeUpgradeAwareOnError(onError)
-    if (type === 'teamPrompt') {
-      StartTeamPromptMutation(
-        atmosphere,
-        {
-          teamId: selectedTeam.id,
-          name,
-          rrule: rrule?.toString(),
-          gcalInput,
-          ignoreSuggestedUpgrade
-        },
-        {navigate, onError: upgradeAwareOnError, onCompleted: upgradeAwareOnCompleted}
-      )
-    } else if (type === 'action') {
+    if (type === 'action') {
       StartCheckInMutation(
         atmosphere,
         {teamId: selectedTeam.id, gcalInput, ignoreSuggestedUpgrade},
@@ -226,6 +215,18 @@ const ActivityDetailsSidebar = (props: Props) => {
                 {teamId: selectedTeam.id, gcalInput, ignoreSuggestedUpgrade},
                 {navigate, onError, onCompleted: upgradeAwareOnCompleted}
               )
+            } else if (type === 'teamPrompt') {
+              StartTeamPromptMutation(
+                atmosphere,
+                {
+                  teamId: selectedTeam.id,
+                  name,
+                  rrule: rrule?.toString(),
+                  gcalInput,
+                  ignoreSuggestedUpgrade
+                },
+                {navigate, onError: upgradeAwareOnError, onCompleted: upgradeAwareOnCompleted}
+              )
             }
           },
           onError
@@ -249,7 +250,7 @@ const ActivityDetailsSidebar = (props: Props) => {
     templateTeam && selectedTemplate.scope === 'TEAM'
       ? () => {
           selectedTemplate &&
-            UpdateReflectTemplateScopeMutation(
+            UpdateTemplateScopeMutation(
               atmosphere,
               {scope: 'ORGANIZATION', templateId: selectedTemplate.id},
               {onError, onCompleted}
@@ -271,7 +272,7 @@ const ActivityDetailsSidebar = (props: Props) => {
 
   return (
     <>
-      <div className='sticky bottom-0 flex w-full flex-col border-slate-300 border-t border-solid bg-white px-4 pt-2 lg:top-0 lg:right-0 lg:h-full lg:w-96 lg:flex-1 lg:border-l lg:pt-14'>
+      <div className='sticky bottom-0 flex w-full flex-col border-hairline border-t border-solid bg-surface-card px-4 pt-2 lg:top-0 lg:right-0 lg:h-full lg:w-96 lg:flex-1 lg:border-l lg:pt-14'>
         <div className='grow'>
           <div className='flex items-center justify-between pt-2 font-semibold text-xl lg:pt-0'>
             Settings
@@ -292,9 +293,9 @@ const ActivityDetailsSidebar = (props: Props) => {
             )}
           >
             <div className='mt-6 flex grow flex-col gap-2'>
-              <NewMeetingTeamPicker
+              <TeamPicker
                 onSelectTeam={onSelectTeam}
-                selectedTeamRef={selectedTeam}
+                selectedTeamId={selectedTeam.id}
                 teamsRef={availableTeams}
                 onShareToOrg={handleShareToOrg}
               />
@@ -331,13 +332,15 @@ const ActivityDetailsSidebar = (props: Props) => {
             placeholder={meetingNamePlaceholder}
             withRecurrence={withRecurrence}
           />
-          <FlatPrimaryButton
+          <Button
+            variant='primary'
+            size='sm'
             onClick={() => handleStartActivity()}
-            waiting={submitting}
+            disabled={submitting}
             className='h-14'
           >
             <div className='text-lg'>Start Activity</div>
-          </FlatPrimaryButton>
+          </Button>
         </div>
       </div>
       {upgradeModalState && (

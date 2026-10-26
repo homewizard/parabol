@@ -1,4 +1,4 @@
-import {google} from 'googleapis'
+import * as google from 'googleapis/build/src/apis/calendar'
 import appOrigin from '../../../appOrigin'
 import type {GcalIntegrationResolvers} from '../resolverTypes'
 
@@ -9,7 +9,7 @@ export type GcalIntegrationSource = {
 
 const GcalIntegration: GcalIntegrationResolvers = {
   auth: ({teamId, userId}, _args, {dataLoader}) => {
-    return dataLoader.get('freshGcalAuth').load({teamId, userId})
+    return dataLoader.get('freshAuth').load({service: 'gcal', teamId, userId})
   },
   cloudProvider: async (_source, _args, {dataLoader}) => {
     const [globalProvider] = await dataLoader
@@ -19,7 +19,7 @@ const GcalIntegration: GcalIntegrationResolvers = {
     return globalProvider
   },
   events: async ({teamId, userId}, {startDate, endDate}, {dataLoader}) => {
-    const gcalAuth = await dataLoader.get('freshGcalAuth').load({teamId, userId})
+    const gcalAuth = await dataLoader.get('freshAuth').load({service: 'gcal', teamId, userId})
     if (!gcalAuth) {
       return []
     }

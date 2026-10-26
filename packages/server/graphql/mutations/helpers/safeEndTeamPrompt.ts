@@ -2,9 +2,8 @@ import type {GraphQLResolveInfo} from 'graphql'
 import {sql} from 'kysely'
 import {SubscriptionChannel} from 'parabol-client/types/constEnums'
 import TimelineEventTeamPromptComplete from '../../../database/types/TimelineEventTeamPromptComplete'
-import {sendSummaryEmailV2} from '../../../email/sendSummaryEmailV2'
+import {sendSummaryEmail} from '../../../email/sendSummaryEmail'
 import getKysely from '../../../postgres/getKysely'
-import {getTeamPromptResponsesByMeetingId} from '../../../postgres/queries/getTeamPromptResponsesByMeetingIds'
 import type {TeamPromptMeeting} from '../../../postgres/types/Meeting'
 import {analytics} from '../../../utils/analytics/analytics'
 import {getUserId} from '../../../utils/authorization'
@@ -73,7 +72,7 @@ const safeEndTeamPrompt = async ({
     dataLoader.get('meetingMembersByMeetingId').load(meetingId),
     dataLoader.get('teams').loadNonNull(teamId),
     dataLoader.get('teamMembersByTeamId').load(teamId),
-    getTeamPromptResponsesByMeetingId(meetingId)
+    dataLoader.get('teamPromptMemberResponsesByMeetingId').load(meetingId)
   ])
 
   const events = teamMembers.map(
@@ -116,7 +115,7 @@ const safeEndTeamPrompt = async ({
   )
   publish(SubscriptionChannel.TEAM, teamId, 'EndTeamPromptSuccess', data, subOptions)
   // do not await sending the email
-  if (page) sendSummaryEmailV2(meetingId, page.id, context, info).catch(Logger.log)
+  if (page) sendSummaryEmail(meetingId, page.id, context, info).catch(Logger.log)
   return data
 }
 

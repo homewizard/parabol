@@ -1,13 +1,14 @@
-import {useEventCallback} from '@mui/material'
 import graphql from 'babel-plugin-relay/macro'
 import type * as React from 'react'
 import {type MutableRefObject, type RefObject, useEffect, useMemo, useState} from 'react'
+import {createPortal} from 'react-dom'
 import {useFragment} from 'react-relay'
+import useEventCallback from '~/hooks/useEventCallback'
 import type {PhaseItemEditor_meeting$key} from '../../__generated__/PhaseItemEditor_meeting.graphql'
 import useAtmosphere from '../../hooks/useAtmosphere'
 import useIsEditing from '../../hooks/useIsEditing'
+import useIsFocused from '../../hooks/useIsFocused'
 import useMutationProps from '../../hooks/useMutationProps'
-import usePortal from '../../hooks/usePortal'
 import {useTipTapReflectionEditor} from '../../hooks/useTipTapReflectionEditor'
 import CreateReflectionMutation from '../../mutations/CreateReflectionMutation'
 import EditReflectionMutation from '../../mutations/EditReflectionMutation'
@@ -34,8 +35,8 @@ interface Props {
   phaseEditorRef: React.RefObject<HTMLDivElement>
   promptId: string
   stackTopRef: RefObject<HTMLDivElement>
-  dataCy: string
   readOnly?: boolean
+  autoFocus: boolean
   meetingRef: PhaseItemEditor_meeting$key
 }
 
@@ -48,8 +49,8 @@ const PhaseItemEditor = (props: Props) => {
     stackTopRef,
     cardsInFlightRef,
     forceUpdateColumn,
-    dataCy,
     readOnly,
+    autoFocus,
     meetingRef
   } = props
   const atmosphere = useAtmosphere()
@@ -115,7 +116,6 @@ const PhaseItemEditor = (props: Props) => {
       key: content,
       isStart: true
     }
-    openPortal()
     cardsInFlightRef.current = [...cardsInFlightRef.current, cardInFlight]
     editor.commands.clearOnSubmit()
     forceUpdateColumn()
@@ -150,7 +150,8 @@ const PhaseItemEditor = (props: Props) => {
       placeholder,
       teamId,
       readOnly: !!readOnly,
-      onModEnter: handleSubmit
+      onModEnter: handleSubmit,
+      autoFocus: autoFocus && !readOnly
     }
   )
 
@@ -182,7 +183,7 @@ const PhaseItemEditor = (props: Props) => {
       })
     }
   })
-  const isFocused = editor?.isFocused
+  const isFocused = useIsFocused(editor)
 
   useEffect(() => {
     if (!editor) return
@@ -208,10 +209,6 @@ const PhaseItemEditor = (props: Props) => {
     }
   }, [editor])
 
-  const {terminatePortal, openPortal, portal} = usePortal({
-    noClose: true,
-    id: 'phaseItemEditor'
-  })
   const showButtons = isFocused || isEditing || (editor && !editor?.isEmpty)
   const showFooter = showButtons || disableAnonymity
 
@@ -222,7 +219,6 @@ const PhaseItemEditor = (props: Props) => {
       ...cardsInFlightRef.current.slice(0, idx),
       ...cardsInFlightRef.current.slice(idx + 1)
     ]
-    if (nextCardsInFlight.length === 0) terminatePortal()
     cardsInFlightRef.current = nextCardsInFlight
     forceUpdateColumn()
   }
@@ -230,10 +226,10 @@ const PhaseItemEditor = (props: Props) => {
   if (!editor) return null
   return (
     <>
-      <ReflectionCardRoot data-cy={dataCy} ref={phaseEditorRef} className='pb-2'>
+      <ReflectionCardRoot ref={phaseEditorRef} className='pb-2'>
         <TipTapEditor
           className={cn('flex h-fit max-h-41 overflow-auto px-4 pt-2 transition-all', {
-            'min-h-16': isEditing || isFocused
+            'min-h-16': isFocused
           })}
           editor={editor}
         />
@@ -254,15 +250,15 @@ const PhaseItemEditor = (props: Props) => {
           )}
         </div>
       </ReflectionCardRoot>
-      {portal(
-        <>
-          {cardsInFlightRef.current.map((card) => {
+      {cardsInFlightRef.current.length > 0 &&
+        createPortal(
+          cardsInFlightRef.current.map((card) => {
             return (
               <ReflectionCardRoot
                 key={card.key}
                 className={cn(
                   'absolute top-0 z-8 transition-all duration-500 ease-out',
-                  card.isStart ? 'shadow-card-raised' : 'shadow-card-grounded'
+                  card.isStart ? 'shadow-[var(--shadow-card-raised)]' : 'shadow-card-grounded'
                 )}
                 style={{transform: card.transform}}
                 onTransitionEnd={removeCardInFlight(card.key)}
@@ -277,9 +273,9 @@ const PhaseItemEditor = (props: Props) => {
                 )}
               </ReflectionCardRoot>
             )
-          })}
-        </>
-      )}
+          }),
+          document.body
+        )}
     </>
   )
 }

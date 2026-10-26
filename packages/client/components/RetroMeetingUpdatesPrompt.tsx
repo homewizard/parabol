@@ -44,7 +44,7 @@ const RetroMeetingUpdatesPrompt = (props: Props) => {
           }
         }
         localStage {
-          ...RetroMeetingUpdatesPromptLocalStage @relay(mask: false)
+          ...RetroMeetingUpdatesPromptLocalStage @relay(mask: false) @alias
         }
       }
     `,
@@ -53,7 +53,8 @@ const RetroMeetingUpdatesPrompt = (props: Props) => {
   const {localStage, team, meetingMembers} = meeting
   const {tasks} = team
   const currentMeetingMember = meetingMembers.find(
-    (meetingMember) => meetingMember.teamMember.id === localStage?.teamMemberId
+    (meetingMember) =>
+      meetingMember.teamMember.id === localStage?.RetroMeetingUpdatesPromptLocalStage?.teamMemberId
   )
   if (!currentMeetingMember) return null
   const {teamMember, user, isConnectedAt} = currentMeetingMember
@@ -65,10 +66,7 @@ const RetroMeetingUpdatesPrompt = (props: Props) => {
     <div className='flex'>
       <Avatar picture={picture} className='h-16 w-16' />
       <div className='ml-4 flex flex-col justify-center'>
-        {/* PhaseHeaderTitle's emotion base sets font-size 16/20 across breakpoints; the
-            text-[18px] utility wins because Tailwind utilities are layered after Emotion
-            in the cascade (see global.css comment). */}
-        <PhaseHeaderTitle className='max-w-full break-words text-[18px]'>
+        <PhaseHeaderTitle className='max-w-full break-words text-[18px] xl:text-[18px]'>
           {prefix}
           <i>{getQuestion(!!isConnectedAt, taskCount, preferredName)}</i>
         </PhaseHeaderTitle>

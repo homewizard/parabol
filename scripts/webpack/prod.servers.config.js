@@ -6,7 +6,8 @@ const getProjectRoot = require('./utils/getProjectRoot')
 const webpack = require('webpack')
 const CopyWebpackPlugin = require('copy-webpack-plugin')
 const {CleanWebpackPlugin} = require('clean-webpack-plugin')
-const cp = require('child_process')
+const getCommitHash = require('./utils/getCommitHash')
+const persistentCache = require('./utils/persistentCache')
 
 const PROJECT_ROOT = getProjectRoot()
 const CLIENT_ROOT = path.join(PROJECT_ROOT, 'packages', 'client')
@@ -14,17 +15,23 @@ const SERVER_ROOT = path.join(PROJECT_ROOT, 'packages', 'server')
 const EMBEDDER_ROOT = path.join(PROJECT_ROOT, 'packages', 'embedder')
 const DOTENV = path.join(PROJECT_ROOT, 'scripts/webpack/utils/dotenv.js')
 const distPath = path.join(PROJECT_ROOT, 'dist')
+const INIT_SERVER_ID = path.join(SERVER_ROOT, 'initServerId.ts')
 const INIT_PUBLIC_PATH = path.join(SERVER_ROOT, 'initPublicPath.ts')
 const INIT_LOGGING = path.join(SERVER_ROOT, 'initLogging.ts')
 const MONKEYPATCHES = path.join(SERVER_ROOT, 'monkeyPatches.ts')
 const DUMP_ON_USR2 = path.join(SERVER_ROOT, 'dumpOnUSR2.ts')
 
-const COMMIT_HASH = cp.execSync('git rev-parse HEAD').toString().trim()
+const COMMIT_HASH = getCommitHash()
 const runtimePlatform = `${process.platform}-${process.arch}`
+const SHARP_ROOT = path.dirname(path.dirname(require.resolve('sharp', {paths: [SERVER_ROOT]})))
+const SHARP_LIBVIPS_ROOT = path.dirname(
+  require.resolve(`@img/sharp-libvips-${runtimePlatform}/package`, {paths: [SHARP_ROOT]})
+)
 
 module.exports = (config) => {
   const noDeps = config.noDeps === 'true'
   return {
+    ...persistentCache(`servers-noDeps-${noDeps}`, __filename),
     mode: 'production',
     devtool: noDeps ? 'source-map' : undefined,
     node: {
@@ -33,6 +40,7 @@ module.exports = (config) => {
     entry: {
       web: [
         DOTENV,
+        INIT_SERVER_ID,
         INIT_PUBLIC_PATH,
         INIT_LOGGING,
         MONKEYPATCHES,
@@ -41,14 +49,19 @@ module.exports = (config) => {
         path.join(PROJECT_ROOT, 'scripts/toolboxSrc/applyEnvVarsToClientAssets.ts'),
         path.join(SERVER_ROOT, 'server.ts')
       ],
-      embedder: [DOTENV, DUMP_ON_USR2, path.join(EMBEDDER_ROOT, 'embedder.ts')],
+      embedder: [DOTENV, INIT_SERVER_ID, DUMP_ON_USR2, path.join(EMBEDDER_ROOT, 'embedder.ts')],
       preDeploy: [
         DOTENV,
+        INIT_SERVER_ID,
         INIT_PUBLIC_PATH,
         path.join(PROJECT_ROOT, 'scripts/toolboxSrc/preDeploy.ts')
       ],
       pushToCDN: [DOTENV, path.join(PROJECT_ROOT, 'scripts/toolboxSrc/pushToCDN.ts')],
-      migrate: [DOTENV, path.join(PROJECT_ROOT, 'scripts/toolboxSrc/standaloneMigrations.ts')],
+      migrate: [
+        DOTENV,
+        INIT_SERVER_ID,
+        path.join(PROJECT_ROOT, 'scripts/toolboxSrc/standaloneMigrations.ts')
+      ],
       assignSURole: [DOTENV, path.join(PROJECT_ROOT, 'scripts/toolboxSrc/assignSURole.ts')],
       pg: {
         // bundle pg with all its dependencies into a single file
@@ -80,7 +93,7 @@ module.exports = (config) => {
     externals: [
       !noDeps && {
         ...nodeExternals({
-          allowlist: [/parabol-client/, /parabol-server/, /@dicebear/, 'node:crypto']
+          allowlist: [/parabol-client/, /parabol-server/, 'node:crypto']
         }),
         sharp: 'commonjs sharp'
       }
@@ -113,35 +126,24 @@ module.exports = (config) => {
         contextRegExp: /pg\/lib/
       }),
       new webpack.IgnorePlugin({
-        resourceRegExp: /^exiftool-vendored$/,
-        contextRegExp: /@dicebear/
+        // sharp statically requires a prebuilt binary for every platform, we only ship ours
+        resourceRegExp: new RegExp(`^@img/sharp-(?!${runtimePlatform}/)[^/]+/sharp\\.node$`)
       }),
       new webpack.IgnorePlugin({
-        resourceRegExp: /^@resvg\/resvg-js$/,
-        contextRegExp: /@dicebear/
-      }),
-      new webpack.IgnorePlugin({
-        resourceRegExp: /inter-regular.otf$/,
-        contextRegExp: /@dicebear/
-      }),
-      new webpack.IgnorePlugin({
-        resourceRegExp: /inter-bold.otf$/,
-        contextRegExp: /@dicebear/
+        // the prebuilt binary finds libvips via rpath, the dylib itself is copied below
+        resourceRegExp: /^@img\/sharp-libvips-[^/]+\/binary$/
       }),
       new CopyWebpackPlugin({
         patterns: [
           {
             // copy sharp's libvips to the output
-            from: path.resolve(
-              PROJECT_ROOT,
-              `node_modules/.pnpm/sharp@0.34.3/node_modules/@img/sharp-libvips-${runtimePlatform}`
-            ),
+            from: SHARP_LIBVIPS_ROOT,
             to: `sharp-libvips-${runtimePlatform}`
           },
           noDeps && {
             // dd-trace-js has a lookup table for hooks, which includes the key `pg`
             // In order for `pg` to get parsed as `pg` and not `pg.js`, we need a package.json to provide the name `pg`
-            from: path.resolve(SERVER_ROOT, 'node_modules', 'pg', 'package.json'),
+            from: path.resolve(PROJECT_ROOT, 'node_modules', 'pg', 'package.json'),
             to: 'node_modules/pg/package.json'
           }
         ].filter(Boolean)
@@ -155,21 +157,12 @@ module.exports = (config) => {
         }
       },
       rules: [
-        ...transformRules(PROJECT_ROOT, true),
+        ...transformRules(PROJECT_ROOT, {isProd: true}),
         {
           test: /\.(png|jpg|jpeg|gif|svg)$/,
           type: 'asset/resource',
           generator: {
             filename: 'images/[name][ext]'
-          }
-        },
-        {
-          test: /sharp\.js$/,
-          loader: 'string-replace-loader',
-          options: {
-            search: 'sharp = require(path)',
-            replace: `sharp = require('@img/sharp-${runtimePlatform}/sharp.node')`,
-            strict: true
           }
         },
         {

@@ -1,100 +1,20 @@
-import styled from '@emotion/styled'
-import {Error as ErrorIcon} from '@mui/icons-material'
-import {Checkbox} from '@mui/material'
 import graphql from 'babel-plugin-relay/macro'
 import {useState} from 'react'
 import {useFragment} from 'react-relay'
+import {CheckBox, CheckBoxOutlineBlank, Error as ErrorIcon} from '~/ui/icons'
 import type {DowngradeModal_organization$key} from '../../../../__generated__/DowngradeModal_organization.graphql'
 import PlainButton from '../../../../components/PlainButton/PlainButton'
 import useAtmosphere from '../../../../hooks/useAtmosphere'
 import useMutationProps from '../../../../hooks/useMutationProps'
 import DowngradeToStarterMutation from '../../../../mutations/DowngradeToStarterMutation'
-import {PALETTE} from '../../../../styles/paletteV3'
+import {cn} from '../../../../ui/cn'
 import {Dialog} from '../../../../ui/Dialog/Dialog'
 import {DialogContent} from '../../../../ui/Dialog/DialogContent'
 import {DialogTitle} from '../../../../ui/Dialog/DialogTitle'
-import {
-  readableReasonsToDowngrade,
-  reasonsToDowngradeLookup,
-  TeamBenefits
-} from '../../../../utils/constants'
+import {readableReasonsToDowngrade, reasonsToDowngradeLookup} from '../../../../utils/constants'
 import SendClientSideEvent from '../../../../utils/SendClientSideEvent'
-
-const LabelGroup = styled('div')({
-  paddingTop: '32px',
-  display: 'flex',
-  justifyContent: 'space-between',
-  width: '100%'
-})
-
-const ActionLabel = styled('div')({
-  color: PALETTE.SKY_500,
-  fontSize: 16,
-  lineHeight: 1.5,
-  fontWeight: 600,
-  '&:hover': {cursor: 'pointer'}
-})
-
-const LineIcon = styled('div')({
-  svg: {fontSize: 19},
-  display: 'flex'
-})
-
-const UL = styled('ul')({margin: 0})
-
-const LI = styled('li')({
-  fontSize: 16,
-  lineHeight: '32px',
-  color: PALETTE.SLATE_900,
-  textTransform: 'none',
-  fontWeight: 400,
-  textAlign: 'left'
-})
-
-const ButtonRow = styled(PlainButton)({
-  width: '100%',
-  display: 'flex',
-  flexWrap: 'nowrap',
-  alignItems: 'center'
-})
-
-const Label = styled('div')({
-  paddingLeft: 8,
-  fontSize: 16,
-  lineHeight: '32px',
-  color: PALETTE.SLATE_900,
-  width: '100%'
-})
-
-const StyledCheckbox = styled(Checkbox)({
-  svg: {fontSize: 28},
-  width: 28,
-  height: 28,
-  textAlign: 'center',
-  userSelect: 'none'
-})
-
-const StyledInput = styled('textarea')({
-  background: PALETTE.SLATE_200,
-  border: `1px solid ${PALETTE.SLATE_400}`,
-  borderRadius: 4,
-  color: PALETTE.SLATE_800,
-  fontSize: 16,
-  font: 'inherit',
-  marginTop: 16,
-  padding: '12px 16px',
-  outline: 0,
-  '::placeholder': {color: PALETTE.SLATE_600}
-})
-
-const Message = styled('div')({fontSize: 15, paddingLeft: 4})
-
-const ErrorRow = styled('div')<{isError: boolean}>(({isError}) => ({
-  alignItems: 'center',
-  color: isError ? PALETTE.TOMATO_500 : PALETTE.SLATE_600,
-  display: isError ? 'flex' : 'none',
-  lineHeight: '24px'
-}))
+import getPlanBenefitLabel from './getPlanBenefitLabel'
+import orgPlanDetails from './orgPlanDetails'
 
 type Props = {
   isOpen: boolean
@@ -156,53 +76,87 @@ const DowngradeModal = (props: Props) => {
         <DialogTitle>Downgrade</DialogTitle>
         {hasConfirmedDowngrade ? (
           <>
-            <p className='text-slate-900'>Why did you choose to go? Choose all that apply</p>
+            <p className='text-fg-primary'>Why did you choose to go? Choose all that apply</p>
             <div className='flex flex-col'>
               {readableReasonsToDowngrade.map((reason) => (
-                <ButtonRow key={reason} onClick={() => handleCheck(reason)}>
-                  <StyledCheckbox checked={selectedReasons.includes(reason)} />
-                  <Label>{reason}</Label>
-                </ButtonRow>
+                <PlainButton
+                  key={reason}
+                  onClick={() => handleCheck(reason)}
+                  className='flex w-full flex-nowrap items-center'
+                >
+                  {selectedReasons.includes(reason) ? (
+                    <CheckBox className='text-[28px] text-accent' />
+                  ) : (
+                    <CheckBoxOutlineBlank className='text-[28px] text-fg-muted' />
+                  )}
+                  <div className='w-full pl-2 text-[16px] text-fg-primary leading-8'>{reason}</div>
+                </PlainButton>
               ))}
               {showInput && (
                 <>
-                  <StyledInput
+                  <textarea
                     onChange={(e) => setOtherTool(e.target.value)}
                     maxLength={100}
                     name='otherToolInput'
                     placeholder='Please enter the name of the tool'
                     rows={2}
                     value={otherTool ?? ''}
+                    className='mt-4 rounded border border-hairline-field bg-surface-well px-4 py-3 text-fg-primary outline-none [font:inherit] placeholder:text-fg-secondary'
                   />
-                  <ErrorRow isError={!!errorMsg}>
-                    <LineIcon>
+                  <div
+                    className={cn(
+                      'items-center leading-6',
+                      errorMsg ? 'flex text-fg-error' : 'hidden text-fg-secondary'
+                    )}
+                  >
+                    <div className='flex [&_svg]:text-[19px]'>
                       <ErrorIcon />
-                    </LineIcon>
-                    <Message>{errorMsg}</Message>
-                  </ErrorRow>
+                    </div>
+                    <div className='pl-1 text-[15px]'>{errorMsg}</div>
+                  </div>
                 </>
               )}
-              <LabelGroup>
-                <ActionLabel onClick={handleSubmit}>Submit</ActionLabel>
-              </LabelGroup>
+              <div className='flex w-full justify-between pt-8'>
+                <div
+                  onClick={handleSubmit}
+                  className='font-semibold text-[16px] text-accent leading-[1.5] hover:cursor-pointer'
+                >
+                  Submit
+                </div>
+              </div>
             </div>
           </>
         ) : (
           <>
-            <p className='text-slate-900'>
+            <p className='text-fg-primary'>
               We're sorry to see you go! Please confirm that you're aware of the following features
               and would still like to downgrade:
             </p>
             <div className='flex flex-col'>
-              <UL>
-                {TeamBenefits.map((benefit) => (
-                  <LI key={benefit}>{benefit}</LI>
+              <ul className='m-0'>
+                {orgPlanDetails.team.included.map(getPlanBenefitLabel).map((benefit) => (
+                  <li
+                    key={benefit}
+                    className='text-left font-normal text-[16px] text-fg-primary normal-case leading-8'
+                  >
+                    {benefit}
+                  </li>
                 ))}
-              </UL>
-              <LabelGroup>
-                <ActionLabel onClick={handleConfirm}>Yes, downgrade</ActionLabel>
-                <ActionLabel onClick={closeModal}>Keep my plan</ActionLabel>
-              </LabelGroup>
+              </ul>
+              <div className='flex w-full justify-between pt-8'>
+                <div
+                  onClick={handleConfirm}
+                  className='font-semibold text-[16px] text-accent leading-[1.5] hover:cursor-pointer'
+                >
+                  Yes, downgrade
+                </div>
+                <div
+                  onClick={closeModal}
+                  className='font-semibold text-[16px] text-accent leading-[1.5] hover:cursor-pointer'
+                >
+                  Keep my plan
+                </div>
+              </div>
             </div>
           </>
         )}

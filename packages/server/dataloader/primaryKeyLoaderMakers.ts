@@ -6,6 +6,7 @@ import {
   selectAgendaItems,
   selectComments,
   selectDiscussion,
+  selectIntegrationSearchQuery,
   selectMassInvitations,
   selectMeetingMembers,
   selectMeetingSeries,
@@ -16,18 +17,25 @@ import {
   selectNotifications,
   selectOAuthAPIProvider,
   selectOrganizations,
+  selectPageExports,
   selectPages,
   selectPersonalAccessToken,
-  selectReflectPrompts,
   selectRetroReflections,
   selectSlackAuths,
   selectSlackNotifications,
   selectSuggestedAction,
   selectTasks,
+  selectTeamHealthCategories,
+  selectTeamHealthCategorySummaries,
+  selectTeamHealthQuestionPacks,
+  selectTeamHealthQuestions,
+  selectTeamHealthResponses,
+  selectTeamHealthTemplateQuestions,
   selectTeamInvitations,
   selectTeamPromptResponses,
   selectTeams,
   selectTemplateDimension,
+  selectTemplatePrompts,
   selectTemplateRef,
   selectTemplateScale,
   selectTemplateScaleRef,
@@ -61,6 +69,30 @@ export const meetingSeries = primaryKeyLoaderMaker((ids: readonly number[]) => {
 
 export const meetingTemplates = primaryKeyLoaderMaker((ids: readonly string[]) => {
   return selectMeetingTemplates().where('id', 'in', ids).execute()
+})
+
+export const teamHealthCategories = primaryKeyLoaderMaker((ids: readonly number[]) => {
+  return selectTeamHealthCategories().where('id', 'in', ids).execute()
+})
+
+export const teamHealthQuestionPacks = primaryKeyLoaderMaker((ids: readonly number[]) => {
+  return selectTeamHealthQuestionPacks().where('id', 'in', ids).execute()
+})
+
+export const teamHealthQuestions = primaryKeyLoaderMaker((ids: readonly number[]) => {
+  return selectTeamHealthQuestions().where('id', 'in', ids).execute()
+})
+
+export const teamHealthTemplateQuestions = primaryKeyLoaderMaker((ids: readonly number[]) => {
+  return selectTeamHealthTemplateQuestions().where('id', 'in', ids).execute()
+})
+
+export const teamHealthResponses = primaryKeyLoaderMaker((ids: readonly number[]) => {
+  return selectTeamHealthResponses().where('id', 'in', ids).execute()
+})
+
+export const teamHealthCategorySummaries = primaryKeyLoaderMaker((ids: readonly number[]) => {
+  return selectTeamHealthCategorySummaries().where('id', 'in', ids).execute()
 })
 export const domainJoinRequests = primaryKeyLoaderMaker(getDomainJoinRequestsByIds)
 
@@ -131,16 +163,12 @@ export const slackNotifications = primaryKeyLoaderMaker((ids: readonly string[])
   return selectSlackNotifications().where('id', 'in', ids).execute()
 })
 
-export const featureFlags = primaryKeyLoaderMaker((ids: readonly string[]) => {
-  return getKysely().selectFrom('FeatureFlag').selectAll().where('id', 'in', ids).execute()
-})
-
 export const comments = primaryKeyLoaderMaker((ids: readonly string[]) => {
   return selectComments().where('id', 'in', ids).execute()
 })
 
-export const reflectPrompts = primaryKeyLoaderMaker((ids: readonly string[]) => {
-  return selectReflectPrompts().where('id', 'in', ids).execute()
+export const templatePrompts = primaryKeyLoaderMaker((ids: readonly string[]) => {
+  return selectTemplatePrompts().where('id', 'in', ids).execute()
 })
 
 export const newMeetings = primaryKeyLoaderMaker((ids: readonly string[]) => {
@@ -195,6 +223,10 @@ export const pages = primaryKeyLoaderMaker((ids: readonly number[]) => {
   return selectPages().where('id', 'in', ids).execute()
 })
 
+export const integrationSearchQueries = primaryKeyLoaderMaker((ids: readonly number[]) => {
+  return selectIntegrationSearchQuery().where('id', 'in', ids).execute()
+})
+
 export const oAuthProviders = primaryKeyLoaderMaker((ids: readonly number[]) => {
   return selectOAuthAPIProvider().where('id', 'in', ids).execute()
 })
@@ -205,4 +237,8 @@ export const userDetails = primaryKeyLoaderMaker((ids: readonly string[]) => {
 
 export const personalAccessTokens = primaryKeyLoaderMaker((ids: readonly string[]) => {
   return selectPersonalAccessToken().where('id', 'in', ids).execute()
+})
+
+export const pageExports = primaryKeyLoaderMaker((ids: readonly string[]) => {
+  return selectPageExports().where('id', 'in', ids).execute()
 })

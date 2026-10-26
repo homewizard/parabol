@@ -1,8 +1,7 @@
-import styled from '@emotion/styled'
 import EditableText from '../../../components/EditableText'
 import useAtmosphere from '../../../hooks/useAtmosphere'
 import useMutationProps from '../../../hooks/useMutationProps'
-import ReflectTemplatePromptUpdateDescriptionMutation from '../../../mutations/ReflectTemplatePromptUpdateDescriptionMutation'
+import UpdateTemplatePromptDescriptionMutation from '../../../mutations/UpdateTemplatePromptDescriptionMutation'
 import Legitity from '../../../validation/Legitity'
 
 interface Props {
@@ -11,11 +10,6 @@ interface Props {
   promptId: string
   onEditingChange: (isEditing: boolean) => void
 }
-
-const EditableSubText = styled(EditableText)({
-  fontSize: 12,
-  lineHeight: '24px'
-})
 
 const EditableTemplateDescription = (props: Props) => {
   const {isOwner, description, promptId, onEditingChange} = props
@@ -27,7 +21,7 @@ const EditableTemplateDescription = (props: Props) => {
     const {error, value: description = ''} = validate(rawQuestion)
     if (error) return
     submitMutation()
-    ReflectTemplatePromptUpdateDescriptionMutation(
+    UpdateTemplatePromptDescriptionMutation(
       atmosphere,
       {promptId, description},
       {onError, onCompleted}
@@ -55,7 +49,8 @@ const EditableTemplateDescription = (props: Props) => {
   }
 
   return (
-    <EditableSubText
+    <EditableText
+      className='text-xs leading-6'
       isWrap
       disabled={!isOwner}
       error={error?.message}

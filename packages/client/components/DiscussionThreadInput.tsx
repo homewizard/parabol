@@ -54,6 +54,9 @@ interface Props {
   isReply?: boolean
   isDisabled?: boolean
   isCreatingPoll?: boolean
+  // false where the discussion changes as a side effect of navigating the meeting rather than
+  // because the viewer went looking for the thread, e.g. team health advancing to the next question
+  autoFocus?: boolean
 }
 
 const DiscussionThreadInput = (props: Props) => {
@@ -62,7 +65,8 @@ const DiscussionThreadInput = (props: Props) => {
     getMaxSortOrder,
     discussion: discussionRef,
     viewer: viewerRef,
-    isCreatingPoll
+    isCreatingPoll,
+    autoFocus = true
   } = props
   const viewer = useFragment(
     graphql`
@@ -199,18 +203,22 @@ const DiscussionThreadInput = (props: Props) => {
   const avatar = isAnonymousComment ? anonymousAvatar : picture
   const inputBottomRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    containerRef.current?.scrollIntoView({
+    const container = containerRef.current
+    if (!container) return
+    const {left, right} = container.getBoundingClientRect()
+    if (right <= 0 || left >= window.innerWidth) return
+    container.scrollIntoView({
       behavior: 'smooth',
       block: 'center'
     })
-    editor?.commands.focus('end')
-  }, [discussionId, editor])
+    if (autoFocus) editor?.commands.focus('end')
+  }, [discussionId, editor, autoFocus])
   const containerRef = useRef<HTMLDivElement>(null)
   useClickAway(containerRef, clearReplyingTo)
   if (!editor) return null
   return (
     <div
-      className='data-[reply=true]:-ml-3 z-0 flex flex-col shadow-discussion-input data-disabled:pointer-events-none data-[reply=true]:mt-2 data-[reply=true]:rounded-t data-disabled:opacity-50 data-[reply=true]:shadow-discussion-thread'
+      className='data-[reply=true]:-ml-3 z-0 flex flex-col border border-hairline-field bg-surface-input shadow-discussion-input data-disabled:pointer-events-none data-[reply=true]:mt-2 data-[reply=true]:rounded-t data-disabled:opacity-50 data-[reply=true]:shadow-discussion-thread'
       data-disabled={isDisabled ? '' : undefined}
       data-reply={isReply}
       ref={containerRef}
@@ -221,7 +229,7 @@ const DiscussionThreadInput = (props: Props) => {
         <SendCommentButton commentSubmitState={commentSubmitState} onSubmit={onSubmit} />
       </div>
       {isActionsContainerVisible && (
-        <div className='flex items-center justify-center border-t-[1px] border-t-slate-200 border-solid py-1'>
+        <div className='flex items-center justify-center border-t-[1px] border-t-hairline border-solid py-1'>
           {allowTasks && <AddTaskButton onClick={addTask} disabled={isActionsContainerDisabled} />}
           {allowPolls && <AddPollButton onClick={addPoll} disabled={isActionsContainerDisabled} />}
         </div>

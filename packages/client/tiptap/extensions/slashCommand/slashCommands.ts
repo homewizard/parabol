@@ -1,20 +1,23 @@
-import DetailsIcon from '@mui/icons-material/ArrowRight'
-import AttachFileIcon from '@mui/icons-material/AttachFile'
-import ChecklistIcon from '@mui/icons-material/Checklist'
-import CodeIcon from '@mui/icons-material/Code'
-import FileOpenIcon from '@mui/icons-material/FileOpen'
-import FormatListBulletedIcon from '@mui/icons-material/FormatListBulleted'
-import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered'
-import FormatQuoteIcon from '@mui/icons-material/FormatQuote'
-import TableIcon from '@mui/icons-material/GridOn'
-import HorizontalRuleIcon from '@mui/icons-material/HorizontalRule'
-import ImageIcon from '@mui/icons-material/Image'
-import InsightsIcon from '@mui/icons-material/Insights'
-import NoteAddIcon from '@mui/icons-material/NoteAdd'
-import TextFieldsIcon from '@mui/icons-material/TextFields'
-import TitleIcon from '@mui/icons-material/Title'
-import type {OverridableComponent} from '@mui/material/OverridableComponent'
 import type {Editor} from '@tiptap/core'
+import type {IconComponent} from '~/ui/icons'
+import {
+  AttachFile as AttachFileIcon,
+  Checklist as ChecklistIcon,
+  Code as CodeIcon,
+  ArrowRight as DetailsIcon,
+  FileOpen as FileOpenIcon,
+  FormatListBulleted as FormatListBulletedIcon,
+  FormatListNumbered as FormatListNumberedIcon,
+  FormatQuote as FormatQuoteIcon,
+  HorizontalRule as HorizontalRuleIcon,
+  Image as ImageIcon,
+  Insights as InsightsIcon,
+  NoteAdd as NoteAddIcon,
+  GridOn as TableIcon,
+  TextFields as TextFieldsIcon,
+  Title as TitleIcon,
+  Toc as TocIcon
+} from '~/ui/icons'
 
 declare module '@tiptap/core' {
   interface EditorEvents {
@@ -30,7 +33,7 @@ export interface SlashCommandGroup {
     description: string
     searchTerms: string[]
     shouldHide?: (editor: Editor) => boolean
-    icon: OverridableComponent<any>
+    icon: IconComponent
     action: (editor: Editor) => void
   }[]
 }
@@ -116,6 +119,13 @@ export const slashCommands = [
         searchTerms: ['codeblock'],
         icon: CodeIcon,
         action: (editor: Editor) => editor.chain().focus().toggleCodeBlock().run()
+      },
+      {
+        title: 'Table of contents',
+        description: 'Navigate the headings on this page',
+        searchTerms: ['toc', 'table of contents', 'contents', 'outline', 'navigation', 'headings'],
+        icon: TocIcon,
+        action: (editor: Editor) => editor.chain().focus().setTableOfContents().run()
       },
       {
         title: 'Details',

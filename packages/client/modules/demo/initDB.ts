@@ -1,8 +1,12 @@
 import type {SlackNotificationEventEnum} from '~/__generated__/SlackNotificationList_viewer.graphql'
-import {PALETTE} from '~/styles/paletteV3'
 import JiraProjectId from '../../shared/gqlIds/JiraProjectId'
 import demoUserAvatar from '../../styles/theme/images/avatar-user.svg'
-import {ExternalLinks, MeetingSettingsThreshold, RetroDemo} from '../../types/constEnums'
+import {
+  DemoIntegration,
+  ExternalLinks,
+  MeetingSettingsThreshold,
+  RetroDemo
+} from '../../types/constEnums'
 import {DISCUSS, GROUP, REFLECT, RETROSPECTIVE, VOTE} from '../../utils/constants'
 import getDemoAvatar from '../../utils/getDemoAvatar'
 import toTeamMemberId from '../../utils/relay/toTeamMemberId'
@@ -59,7 +63,7 @@ const initMeetingSettings = () => {
 }
 
 export const JiraDemoKey = 'Demo'
-export const JiraDemoCloudName = 'jira-demo'
+export const JiraDemoCloudName = DemoIntegration.JIRA_CLOUD_NAME
 const JiraSecretKey = 'jira-secret'
 const JiraDemoProjectId = '123:Demo'
 const JiraSecretProjectId = '123:jira-secret'
@@ -118,7 +122,7 @@ class DemoJiraRemoteProject {
   }
 }
 const GitLabDemoKey = 'parabol/parabol-demo'
-export const GitHubDemoKey = 'ParabolInc/ParabolDemo'
+export const GitHubDemoKey = DemoIntegration.GITHUB_REPO
 export const GitHubProjectKeyLookup = {
   [GitHubDemoKey]: {
     nameWithOwner: GitHubDemoKey,
@@ -127,9 +131,11 @@ export const GitHubProjectKeyLookup = {
 }
 
 const makeRepoIntegrationGitHub = (nameWithOwner: keyof typeof GitHubProjectKeyLookup) => ({
-  __typename: '_xGitHubRepository',
-  id: `si:${nameWithOwner}`,
-  ...GitHubProjectKeyLookup[nameWithOwner]
+  __typename: 'RepoContainer',
+  id: `github:${nameWithOwner}`,
+  service: 'github',
+  name: nameWithOwner,
+  integrationRepoId: nameWithOwner
 })
 
 const initSlackNotification = (userId: string) => ({
@@ -217,6 +223,7 @@ const initDemoTeamMember = (
     isSelf: idx === 0,
     picture: picture,
     preferredName,
+    services: [],
     integrations: {
       id: 'demoTeamIntegrations',
       atlassian: {
@@ -367,7 +374,7 @@ const initPhases = () => {
           promptId: 'startId',
           question: 'Start',
           description: 'What new behaviors should we adopt?',
-          groupColor: PALETTE.JADE_400,
+          groupColor: 'var(--color-jade-400)',
           sortOrder: 0
         },
         {
@@ -375,7 +382,7 @@ const initPhases = () => {
           promptId: 'stopId',
           question: 'Stop',
           description: 'What existing behaviors should we cease doing?',
-          groupColor: PALETTE.TOMATO_500,
+          groupColor: 'var(--color-tomato-500)',
           sortOrder: 1
         },
         {
@@ -383,7 +390,7 @@ const initPhases = () => {
           promptId: 'continueId',
           question: 'Continue',
           description: 'What current behaviors should we keep doing?',
-          groupColor: PALETTE.SKY_500,
+          groupColor: 'var(--color-sky-500)',
           sortOrder: 2
         }
       ],
@@ -537,6 +544,8 @@ const initNewMeeting = (
     nextAutoGroupThreshold: null,
     viewerMeetingMember,
     reflectionGroups: [] as any[],
+    // The demo has no server to generate suggestions, so the hover outline & modal stay inert
+    suggestedGrouping: null,
     votesRemaining: teamMembers.length * 5,
     phases: initPhases() as any[],
     summarySentAt: null,
@@ -617,13 +626,10 @@ const initDB = (botScript: ReturnType<typeof initBotScript>) => {
 export type RetroDemoDB = ReturnType<typeof initDB>
 export default initDB
 
-const makeRepoIntegrationGitLab = (fullPath: string) => {
-  return {
-    __typename: '_xGitLabProject',
-    id: fullPath,
-    service: 'gitlab',
-    fullPath,
-    name: fullPath.split('/')[1],
-    description: 'Parabol GitLab Demo Project'
-  }
-}
+const makeRepoIntegrationGitLab = (fullPath: string) => ({
+  __typename: 'RepoContainer',
+  id: `gitlab:${fullPath}`,
+  service: 'gitlab',
+  name: fullPath,
+  integrationRepoId: fullPath
+})

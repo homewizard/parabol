@@ -1,6 +1,6 @@
-import {Close} from '@mui/icons-material'
 import graphql from 'babel-plugin-relay/macro'
 import {type PreloadedQuery, usePreloadedQuery} from 'react-relay'
+import {Close} from '~/ui/icons'
 import type {RetroDrawerQuery} from '../__generated__/RetroDrawerQuery.graphql'
 import {DiscussionThreadEnum} from '../types/constEnums'
 import {cn} from '../ui/cn'
@@ -67,7 +67,7 @@ const RetroDrawer = (props: Props) => {
       >
         <div
           className={cn(
-            'flex flex-1 flex-col justify-stretch overflow-scroll bg-white',
+            'flex flex-1 flex-col justify-stretch overflow-scroll bg-surface-card',
             'z-sidebar h-full',
             'fuzzy-tablet:w-[min(360px,100vw)] w-screen',
             'static sidebar-left:fixed sidebar-left:top-0 sidebar-left:right-0 sidebar-left:bottom-0',
@@ -84,7 +84,7 @@ const RetroDrawer = (props: Props) => {
             <div className='flex justify-between px-4'>
               <div className='pb-4 font-semibold text-base'>Templates</div>
               <div
-                className='cursor-pointer text-slate-600 hover:opacity-50'
+                className='cursor-pointer text-fg-secondary hover:opacity-50'
                 onClick={toggleDrawer}
               >
                 <Close />

@@ -1,7 +1,7 @@
-import type {JSONContent} from '@tiptap/core'
 import type {GraphQLResolveInfo} from 'graphql'
 import GitLabIssueId from 'parabol-client/shared/gqlIds/GitLabIssueId'
-import {splitTipTapContent} from 'parabol-client/shared/tiptap/splitTipTapContent'
+import IntegrationProviderId from 'parabol-client/shared/gqlIds/IntegrationProviderId'
+import {tipTapToMarkdown} from 'parabol-client/shared/tiptap/tipTapToMarkdown'
 import type {InternalContext} from '../../graphql/graphql'
 import createIssueMutation from '../../graphql/nestedSchema/GitLab/mutations/createIssue.graphql'
 import createLabel from '../../graphql/nestedSchema/GitLab/mutations/createLabel.graphql'
@@ -28,9 +28,12 @@ import type {
   UpdateIssueMutation,
   UpdateIssueMutationVariables
 } from '../../types/gitlabTypes'
-import {convertTipTapToMarkdown} from '../../utils/convertTipTapToMarkdown'
 import makeCreateGitLabTaskComment from '../../utils/makeCreateGitLabTaskComment'
-import type {CreateTaskResponse, TaskIntegrationManager} from '../TaskIntegrationManagerFactory'
+import type {
+  CreateTaskParams,
+  CreateTaskResponse,
+  TaskIntegrationManager
+} from '../platform/TaskIntegrationManager'
 
 class GitLabServerManager implements TaskIntegrationManager {
   public title = 'GitLab'
@@ -94,14 +97,11 @@ class GitLabServerManager implements TaskIntegrationManager {
   }
 
   async createTask({
-    rawContentJSON,
+    title,
+    bodyContent,
     integrationRepoId
-  }: {
-    rawContentJSON: JSONContent
-    integrationRepoId: string
-  }): Promise<CreateTaskResponse> {
-    const {title, bodyContent} = splitTipTapContent(rawContentJSON)
-    const description = convertTipTapToMarkdown(bodyContent)
+  }: CreateTaskParams): Promise<CreateTaskResponse> {
+    const description = bodyContent ? tipTapToMarkdown(bodyContent) : ''
     const [createIssueData, createIssueError] = await this.createIssue({
       title,
       description,
@@ -111,14 +111,15 @@ class GitLabServerManager implements TaskIntegrationManager {
     const issue = createIssueData.createIssue?.issue
     if (!issue) return new Error('Failed to create issue')
     const {id: gid} = issue
+    const providerId = IntegrationProviderId.join(this.auth.providerId)
     return {
-      integrationHash: GitLabIssueId.join(`${this.auth.providerId}`, gid),
+      integrationHash: GitLabIssueId.join(providerId, gid),
       issueId: gid,
       integration: {
         accessUserId: this.auth.userId,
         service: 'gitlab',
         gid,
-        providerId: `${this.auth.providerId}`
+        providerId
       }
     }
   }

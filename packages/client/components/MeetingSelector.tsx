@@ -24,6 +24,9 @@ const meetingLookup = {
   retrospective: lazyPreload(() => import(/* webpackChunkName: 'RetroMeeting' */ './RetroMeeting')),
   teamPrompt: lazyPreload(
     () => import(/* webpackChunkName: 'TeamPromptMeeting' */ './TeamPromptMeeting')
+  ),
+  teamHealth: lazyPreload(
+    () => import(/* webpackChunkName: 'TeamHealthMeeting' */ './TeamHealthMeeting')
   )
 }
 
@@ -81,17 +84,29 @@ const MeetingSelector = (props: Props) => {
     throw new Error('Meeting was null')
   }
 
-  const {meetingType} = meeting
-  const Meeting = meetingLookup[meetingType]
-  return <Meeting meeting={meeting as any} />
+  const {
+    meetingType,
+    RetroMeeting_meeting: retroMeeting,
+    ActionMeeting_meeting: actionMeeting,
+    PokerMeeting_meeting: pokerMeeting,
+    TeamPromptMeeting_meeting: teamPromptMeeting,
+    TeamHealthMeeting_meeting: teamHealthMeeting
+  } = meeting
+  if (retroMeeting) return <meetingLookup.retrospective meeting={retroMeeting} />
+  if (actionMeeting) return <meetingLookup.action meeting={actionMeeting} />
+  if (pokerMeeting) return <meetingLookup.poker meeting={pokerMeeting} />
+  if (teamPromptMeeting) return <meetingLookup.teamPrompt meeting={teamPromptMeeting} />
+  if (teamHealthMeeting) return <meetingLookup.teamHealth meeting={teamHealthMeeting} />
+  throw new Error(`No meeting component for meeting type: ${meetingType}`)
 }
 
 graphql`
   fragment MeetingSelector_meeting on NewMeeting {
-    ...RetroMeeting_meeting
-    ...ActionMeeting_meeting
-    ...PokerMeeting_meeting
-    ...TeamPromptMeeting_meeting
+    ...RetroMeeting_meeting @alias
+    ...ActionMeeting_meeting @alias
+    ...PokerMeeting_meeting @alias
+    ...TeamPromptMeeting_meeting @alias
+    ...TeamHealthMeeting_meeting @alias
     meetingType
   }
 `

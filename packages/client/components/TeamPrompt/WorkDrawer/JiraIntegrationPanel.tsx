@@ -5,7 +5,9 @@ import type {JiraIntegrationPanel_meeting$key} from '../../../__generated__/Jira
 import useAtmosphere from '../../../hooks/useAtmosphere'
 import useInspirationDrawer from '../../../hooks/useInspirationDrawer'
 import useMutationProps from '../../../hooks/useMutationProps'
+import {getConnectProvider} from '../../../integrations/platform/findIntegrationService'
 import AtlassianClientManager from '../../../utils/AtlassianClientManager'
+import {hasJiraScopes} from '../../../utils/atlassianScopes'
 import SendClientSideEvent from '../../../utils/SendClientSideEvent'
 import InspirationItemsPanel from './InspirationItemsPanel'
 import JiraIntegrationResultsRoot from './JiraIntegrationResultsRoot'
@@ -19,7 +21,7 @@ const JiraIntegrationPanel = (props: Props) => {
   const {meetingRef} = props
   const meeting = useFragment(
     graphql`
-      fragment JiraIntegrationPanel_meeting on TeamPromptMeeting {
+      fragment JiraIntegrationPanel_meeting on NewMeeting {
         ...useInspirationDrawer_meeting
         id
         teamId
@@ -27,13 +29,18 @@ const JiraIntegrationPanel = (props: Props) => {
           id
           title
           content
+          promptId
         }
         viewerMeetingMember {
           teamMember {
             teamId
+            services {
+              ...findIntegrationService_cloudProvider @relay(mask: false)
+            }
             integrations {
               atlassian {
                 isActive
+                scope
               }
             }
           }
@@ -46,8 +53,10 @@ const JiraIntegrationPanel = (props: Props) => {
   const atmosphere = useAtmosphere()
   const teamMember = meeting.viewerMeetingMember?.teamMember
 
-  const {dateRange, setDateRange, viewerResponse, onResultCount, getHasResults} =
-    useInspirationDrawer('jira', meeting)
+  const {dateRange, setDateRange, onResultCount, getResultCount} = useInspirationDrawer(
+    'jira',
+    meeting
+  )
 
   // JQL search re-run server-side when drafting a response, so the query the user sees and the
   // query the server runs stay in sync by construction.
@@ -56,16 +65,23 @@ const JiraIntegrationPanel = (props: Props) => {
     : ''
   const conditions = ['assignee = currentUser()', dateQueryString].filter(Boolean).join(' AND ')
   const searchQuery = `${conditions} order by updated DESC`
-  const hasResults = getHasResults(searchQuery)
 
   const mutationProps = useMutationProps()
   const {error, onError} = mutationProps
 
   const authJira = () => {
-    if (!teamMember) {
+    const provider = teamMember && getConnectProvider(teamMember.services, 'jira')
+    if (!teamMember || !provider) {
       return onError(new Error('Could not find team member'))
     }
-    AtlassianClientManager.openOAuth(atmosphere, teamMember.teamId, mutationProps)
+    AtlassianClientManager.openOAuth(
+      atmosphere,
+      teamMember.teamId,
+      provider,
+      mutationProps,
+      AtlassianClientManager.JIRA_SCOPE,
+      teamMember.integrations.atlassian?.scope
+    )
 
     SendClientSideEvent(atmosphere, 'Inspiration Drawer Integration Connected', {
       teamId: meeting.teamId,
@@ -74,27 +90,33 @@ const JiraIntegrationPanel = (props: Props) => {
     })
   }
 
+  const filterBar = (
+    <div className='mb-2 flex w-full px-2'>
+      <WorkDrawerDateFilter dateRange={dateRange} setDateRange={setDateRange} />
+    </div>
+  )
+
   return (
     <>
-      {teamMember?.integrations.atlassian?.isActive ? (
+      {teamMember?.integrations.atlassian?.isActive &&
+      hasJiraScopes(teamMember?.integrations.atlassian?.scope) ? (
         <>
-          <div className='mb-2 flex w-full px-4'>
-            <WorkDrawerDateFilter dateRange={dateRange} setDateRange={setDateRange} />
-          </div>
-          {hasResults && (
+          {filterBar}
+          <div className='flex min-h-0 flex-1 flex-col overflow-y-auto'>
             <InspirationItemsPanel
               meetingId={meeting.id}
               service='jira'
               searchQuery={searchQuery}
               initialItems={meeting.jiraInspirationItems}
-              viewerResponse={viewerResponse}
-            />
-          )}
-          <JiraIntegrationResultsRoot
-            teamId={teamMember.teamId}
-            searchQuery={searchQuery}
-            onResultCount={onResultCount}
-          />
+              hideDraftPanel={!getResultCount(searchQuery)}
+            >
+              <JiraIntegrationResultsRoot
+                teamId={teamMember.teamId}
+                searchQuery={searchQuery}
+                onResultCount={onResultCount}
+              />
+            </InspirationItemsPanel>
+          </div>
         </>
       ) : (
         <div className='flex flex-col items-center gap-2 pt-12'>
@@ -102,12 +124,12 @@ const JiraIntegrationPanel = (props: Props) => {
           <b>Connect to Jira</b>
           <div className='w-1/2 text-center text-sm'>Connect to Jira to view your issues.</div>
           <button
-            className='mt-4 cursor-pointer rounded-full bg-sky-500 px-8 py-2 font-semibold text-white hover:bg-sky-600'
+            className='mt-4 cursor-pointer rounded-md bg-sky-500 px-8 py-2 font-semibold text-white hover:bg-sky-600'
             onClick={authJira}
           >
             Connect
           </button>
-          {error && <div className='text-tomato-500'>Error: {error.message}</div>}
+          {error && <div className='text-fg-error'>Error: {error.message}</div>}
         </div>
       )}
     </>

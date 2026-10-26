@@ -1,5 +1,5 @@
-import LockIcon from '@mui/icons-material/Lock'
 import {useLocation, useNavigate} from 'react-router'
+import {Lock as LockIcon} from '~/ui/icons'
 import useAtmosphere from '../../hooks/useAtmosphere'
 import {Button} from '../../ui/Button/Button'
 import {Dialog} from '../../ui/Dialog/Dialog'
@@ -34,7 +34,7 @@ export const PageNoAccess = (props: Props) => {
           noClose
         >
           <DialogTitle className='flex w-full flex-col items-center justify-center'>
-            <div className='h-12 w-12 rounded-full bg-slate-300 p-3 text-slate-600'>
+            <div className='h-12 w-12 rounded-full bg-surface-well p-3 text-fg-secondary'>
               <LockIcon />
             </div>
             <div>Login Required</div>
@@ -46,7 +46,6 @@ export const PageNoAccess = (props: Props) => {
           </DialogDescription>
           <DialogActions className='mt-0'>
             <Button
-              shape='pill'
               variant='dialogPrimary'
               className='p-3 px-6'
               onClick={() => {

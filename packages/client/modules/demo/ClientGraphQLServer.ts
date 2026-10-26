@@ -552,7 +552,7 @@ class ClientGraphQLServer extends (EventEmitter as GQLDemoEmitter) {
       const {content} = task
       const doc = JSON.parse(content)
       const {title, bodyContent} = splitTipTapContent(doc)
-      const bodyHTML = generateHTML(bodyContent, serverTipTapExtensions)
+      const bodyHTML = bodyContent ? generateHTML(bodyContent, serverTipTapExtensions) : ''
       const now = new Date().toJSON()
 
       if (integrationProviderService === 'github') {
@@ -561,6 +561,7 @@ class ClientGraphQLServer extends (EventEmitter as GQLDemoEmitter) {
           integration: {
             __typename: '_xGitHubIssue',
             id: `${taskId}:GitHub`,
+            service: 'github',
             title,
             bodyHTML,
             repository: {
@@ -584,6 +585,7 @@ class ClientGraphQLServer extends (EventEmitter as GQLDemoEmitter) {
           integration: {
             __typename: 'JiraIssue',
             id: `jira:${taskId}`,
+            service: 'jira',
             issueKey,
             projectKey: key,
             cloudId,
@@ -613,6 +615,7 @@ class ClientGraphQLServer extends (EventEmitter as GQLDemoEmitter) {
           integration: {
             __typename: '_xGitLabIssue',
             id: `gitlab:${taskId}`,
+            service: 'gitlab',
             iid,
             title,
             description: bodyHTML,
@@ -1678,8 +1681,18 @@ class ClientGraphQLServer extends (EventEmitter as GQLDemoEmitter) {
       }
       return {endRetrospective: data}
     },
-    InviteToTeamMutation: ({invitees}: any) => {
-      return {inviteToTeam: {invitees}}
+    useInviteToTeamMutation: ({invitees}: any) => {
+      return {
+        inviteToTeam: {
+          invitees: (invitees as string[]).map((email) => ({
+            email,
+            status: 'sent',
+            message: null,
+            suggestedEmail: null
+          })),
+          removedSuggestedActionId: null
+        }
+      }
     },
     UpdateCommentContentMutation: (
       {commentId, content}: {commentId: string; content: string},

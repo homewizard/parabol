@@ -8,7 +8,7 @@ import type {
 import type {PokerEstimateHeaderCardQuery as TPokerEstimateHeaderCardQuery} from '../__generated__/PokerEstimateHeaderCardQuery.graphql'
 import type Atmosphere from '../Atmosphere'
 import useAtmosphere from '../hooks/useAtmosphere'
-import UpdatePokerScopeMutation from '../mutations/UpdatePokerScopeMutation'
+import useUpdatePokerScopeMutation from '../mutations/useUpdatePokerScopeMutation'
 import {convertADFToTipTap} from '../shared/tiptap/convertADFToTipTap'
 import renderMarkdown from '../utils/renderMarkdown'
 import PokerEstimateHeaderCardError from './PokerEstimateHeaderCardError'
@@ -60,7 +60,7 @@ const getHeaderFields = (integration: Integration | null): HeaderFields | null =
       const {summary, descriptionHTML, jiraUrl, issueKey} = integration
       return {
         cardTitle: summary,
-        descriptionHTML,
+        descriptionHTML: descriptionHTML ?? '',
         url: jiraUrl,
         linkTitle: `${name} Issue #${issueKey}`,
         linkText: issueKey
@@ -70,7 +70,7 @@ const getHeaderFields = (integration: Integration | null): HeaderFields | null =
       const {number, title: githubTitle, bodyHTML, ghUrl} = integration
       return {
         cardTitle: githubTitle,
-        descriptionHTML: bodyHTML,
+        descriptionHTML: bodyHTML ?? '',
         url: ghUrl,
         linkTitle: `GitHub Issue #${number}`,
         linkText: `#${number}`
@@ -80,12 +80,12 @@ const getHeaderFields = (integration: Integration | null): HeaderFields | null =
       const {
         title: azureDevOpsTitle,
         url: azureDevOpsUrl,
-        id: workItemId,
+        workItemKey: workItemId,
         descriptionHTML
       } = integration
       return {
         cardTitle: azureDevOpsTitle,
-        descriptionHTML,
+        descriptionHTML: descriptionHTML ?? '',
         url: azureDevOpsUrl,
         linkTitle: `${azureDevOpsTitle} Issue #${workItemId}`,
         linkText: `#${workItemId}`
@@ -123,6 +123,7 @@ graphql`
       ... on AzureDevOpsWorkItem {
         __typename
         id
+        workItemKey: issueKey
         title
         teamProject
         type
@@ -174,6 +175,7 @@ graphql`
 const PokerEstimateHeaderCard = (props: Props) => {
   const {stage: stageRef} = props
   const atmosphere = useAtmosphere()
+  const [updatePokerScope] = useUpdatePokerScopeMutation()
   const [isRefreshing, setIsRefreshing] = useState(false)
   const stage = useFragment(
     graphql`
@@ -182,6 +184,7 @@ const PokerEstimateHeaderCard = (props: Props) => {
         creatorUserId
         meetingId
         taskId
+        serviceTaskId
         task {
           ...PokerEstimateHeaderCardTask @relay(mask: false)
         }
@@ -189,7 +192,7 @@ const PokerEstimateHeaderCard = (props: Props) => {
     `,
     stageRef
   )
-  const {meetingId, task, creatorUserId} = stage
+  const {meetingId, task, creatorUserId, serviceTaskId} = stage
   const integration = task?.integration
   const editorContent = useMemo(() => {
     if (creatorUserId !== atmosphere.viewerId) return null
@@ -202,15 +205,14 @@ const PokerEstimateHeaderCard = (props: Props) => {
     }
   }, [integration, creatorUserId, atmosphere.viewerId])
 
+  const onRemove = () => {
+    updatePokerScope({
+      variables: {meetingId, updates: [{service: 'PARABOL', serviceTaskId, action: 'DELETE'}]},
+      contents: []
+    })
+  }
+
   if (!task) {
-    const {taskId} = stage
-    const onRemove = () => {
-      UpdatePokerScopeMutation(
-        atmosphere,
-        {meetingId, updates: [{service: 'PARABOL', serviceTaskId: taskId, action: 'DELETE'}]},
-        {onCompleted: () => {}, onError: () => {}, contents: []}
-      )
-    }
     return <PokerEstimateHeaderCardError onRemove={onRemove} />
   }
 
@@ -231,16 +233,6 @@ const PokerEstimateHeaderCard = (props: Props) => {
 
   const headerFields = getHeaderFields(integration)
   if (!headerFields) {
-    const onRemove = () => {
-      UpdatePokerScopeMutation(
-        atmosphere,
-        {
-          meetingId,
-          updates: [{service: 'PARABOL', serviceTaskId: integrationHash, action: 'DELETE'}]
-        },
-        {onCompleted: () => {}, onError: () => {}, contents: []}
-      )
-    }
     return <PokerEstimateHeaderCardError service={'Integration'} onRemove={onRemove} />
   }
 

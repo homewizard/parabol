@@ -13,6 +13,8 @@ import {
 } from '../components/AdhocTeamMultiSelect/AdhocTeamMultiSelect'
 import useAtmosphere from '../hooks/useAtmosphere'
 import useMutationProps from '../hooks/useMutationProps'
+import {isRejected} from '../hooks/useTeamInviteeDrafts'
+import {Button} from '../ui/Button/Button'
 import {Dialog} from '../ui/Dialog/Dialog'
 import {DialogActions} from '../ui/Dialog/DialogActions'
 import {DialogContent} from '../ui/Dialog/DialogContent'
@@ -21,7 +23,7 @@ import {Input} from '../ui/Input/Input'
 import {Tooltip} from '../ui/Tooltip/Tooltip'
 import {TooltipContent} from '../ui/Tooltip/TooltipContent'
 import {TooltipTrigger} from '../ui/Tooltip/TooltipTrigger'
-import FlatPrimaryButton from './FlatPrimaryButton'
+import plural from '../utils/plural'
 import Toggle from './Toggle/Toggle'
 
 interface Props {
@@ -106,7 +108,21 @@ const AddTeamDialog = (props: Props) => {
           onCompleted(res, errors)
           const error = getGraphQLError(res, errors)
           if (!error) {
-            onTeamAdded(res.addTeam.team.id)
+            const {team, invitees} = res.addTeam
+            const unsentCount = invitees?.filter(isRejected).length ?? 0
+            if (unsentCount > 0) {
+              const unsent = `${unsentCount} ${plural(unsentCount, 'invitation')} ${unsentCount === 1 ? "wasn't" : "weren't"} sent`
+              atmosphere.eventEmitter.emit('addSnackbar', {
+                key: `addTeamInvitees:${team.id}`,
+                autoDismiss: 15,
+                message: `${team.name} was created, but ${unsent}`,
+                action: {
+                  label: 'Review',
+                  callback: () => navigate(`/team/${team.id}`, {state: {inviteResults: invitees}})
+                }
+              })
+            }
+            onTeamAdded(team.id)
           }
         },
         navigate,
@@ -135,7 +151,7 @@ const AddTeamDialog = (props: Props) => {
           />
 
           {selectedUsers.some((user: Option) => !user.id) && (
-            <div className='mt-3 font-semibold text-slate-700 text-xs'>
+            <div className='mt-3 font-semibold text-fg-primary text-xs'>
               Email invitations expire in 30 days.
             </div>
           )}
@@ -149,16 +165,14 @@ const AddTeamDialog = (props: Props) => {
             }}
             value={teamName}
           />
-          {error && (
-            <div className='mt-2 font-semibold text-sm text-tomato-500'>{error.message}</div>
-          )}
+          {error && <div className='mt-2 font-semibold text-fg-error text-sm'>{error.message}</div>}
         </fieldset>
 
         <fieldset className={fieldsetStyles}>
           <div className='flex items-center justify-between'>
             <div className='flex-1'>
               <label className={labelStyles}>Team Privacy</label>
-              <div className='mt-1 text-slate-600 text-xs'>
+              <div className='mt-1 text-fg-secondary text-xs'>
                 {isPublic ? (
                   <>
                     <div>
@@ -169,7 +183,7 @@ const AddTeamDialog = (props: Props) => {
                       <div className='mt-1'>
                         <span
                           onClick={goToBilling}
-                          className='cursor-pointer font-semibold text-sky-500 outline-none hover:text-sky-600'
+                          className='cursor-pointer font-semibold text-accent outline-none hover:text-sky-600'
                         >
                           Upgrade
                         </span>{' '}
@@ -202,13 +216,14 @@ const AddTeamDialog = (props: Props) => {
         </fieldset>
 
         <DialogActions>
-          <FlatPrimaryButton
-            size='medium'
+          <Button
+            variant='primary'
+            size='md'
             onClick={handleAddTeam}
             disabled={submitting || !isValid}
           >
             Add team
-          </FlatPrimaryButton>
+          </Button>
         </DialogActions>
       </DialogContent>
     </Dialog>

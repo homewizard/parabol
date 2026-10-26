@@ -51,9 +51,9 @@ const queryNode = graphql`
 `
 
 export const InsightsBlockEditing = (props: NodeViewProps) => {
-  const {editor, node, updateAttributes} = props
+  const {editor, getPos, node, updateAttributes} = props
   const attrs = node.attrs as InsightsBlockAttrs
-  const {id: blockId, after, before, meetingTypes, teamIds, meetingIds, hash, title, prompt} = attrs
+  const {after, before, meetingTypes, teamIds, meetingIds, hash, title, prompt} = attrs
   const atmosphere = useAtmosphere()
   const canQueryMeetings = teamIds.length > 0 && meetingTypes.length > 0 && after && before
   const {submitting, submitMutation, onCompleted} = useMutationProps()
@@ -92,18 +92,18 @@ export const InsightsBlockEditing = (props: NodeViewProps) => {
             }
             return
           }
-          const freshInsightsNode = editor.$node('insightsBlock', {
-            id: blockId
-          })
-          if (!freshInsightsNode) return
+          buffer += chunk
+          const pos = getPos()
+          if (pos === undefined) return
+          const freshNode = editor.state.doc.nodeAt(pos)
+          if (freshNode?.type.name !== 'insightsBlock') return
           if (first) {
             first = false
             updateAttributes({editing: false, hash: resultsHash})
           }
-          buffer += chunk
           const bufferFragment = marked.parse(buffer)
           editor.commands.insertContentAt(
-            {from: freshInsightsNode.from, to: freshInsightsNode.to - 1},
+            {from: pos + 1, to: pos + freshNode.nodeSize - 1},
             bufferFragment
           )
         } catch (e) {
@@ -130,7 +130,7 @@ export const InsightsBlockEditing = (props: NodeViewProps) => {
   }
   if (!isLoggedIn) {
     return (
-      <div className='font-semibold text-slate-700 text-sm'>Please login to generate insights</div>
+      <div className='font-semibold text-fg-primary text-sm'>Please login to generate insights</div>
     )
   }
   return (
@@ -158,13 +158,7 @@ export const InsightsBlockEditing = (props: NodeViewProps) => {
       )}
       <InsightsBlockPromptRoot updateAttributes={updateAttributes} attrs={attrs} />
       <div className='flex select-none justify-end p-4'>
-        <Button
-          variant='secondary'
-          shape='pill'
-          size='md'
-          onClick={generateInsights}
-          disabled={disabled}
-        >
+        <Button variant='secondary' size='md' onClick={generateInsights} disabled={disabled}>
           Generate Insights
           {submitting ? <Ellipsis /> : undefined}
         </Button>

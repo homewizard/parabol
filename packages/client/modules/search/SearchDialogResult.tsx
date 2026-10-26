@@ -1,9 +1,9 @@
-import DescriptionIcon from '@mui/icons-material/Description'
 import graphql from 'babel-plugin-relay/macro'
 import DOMPurify from 'dompurify'
 import {type ReactNode, useEffect, useRef} from 'react'
 import {useFragment} from 'react-relay'
 import {Link} from 'react-router'
+import {Description as DescriptionIcon} from '~/ui/icons'
 import type {SearchDialogResult_edge$key} from '../../__generated__/SearchDialogResult_edge.graphql'
 import TypeAheadLabel from '../../components/TypeAheadLabel'
 import {getPageSlug} from '../../tiptap/getPageSlug'
@@ -76,9 +76,9 @@ export const SearchDialogResult = ({
         setSelectedIndex()
       }}
       data-highlighted={isActive ? '' : undefined}
-      className={`group flex cursor-pointer scroll-mt-4 items-center gap-3 rounded-md px-3 py-1 outline-none transition-colors hover:bg-slate-200 data-highlighted:bg-slate-200`}
+      className={`group flex cursor-pointer scroll-mt-4 items-center gap-3 rounded-md px-3 py-1 outline-none transition-colors hover:bg-surface-hover data-highlighted:bg-surface-hover`}
     >
-      <div className='text-slate-600 transition-colors group-hover:text-slate-700 group-data-highlighted:text-slate-700'>
+      <div className='text-fg-secondary transition-colors group-hover:text-fg-primary group-data-highlighted:text-fg-primary'>
         {icon}
       </div>
       <Link
@@ -92,11 +92,11 @@ export const SearchDialogResult = ({
           <TypeAheadLabel
             query={wordPattern}
             label={title || '<Untitled>'}
-            className='font-normal text-[14px] text-slate-800'
+            className='font-normal text-[14px] text-fg-primary'
           />
           {firstSnippet && (
             <span
-              className='text-slate-700 text-xs'
+              className='text-fg-secondary text-xs'
               dangerouslySetInnerHTML={{
                 __html: firstSnippet
               }}

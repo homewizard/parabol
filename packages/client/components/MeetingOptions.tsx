@@ -1,7 +1,7 @@
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
 import graphql from 'babel-plugin-relay/macro'
 import {useEffect, useState} from 'react'
 import {useLazyLoadQuery} from 'react-relay'
+import {SwapHoriz as SwapHorizIcon} from '~/ui/icons'
 import type {MeetingOptionsQuery} from '../__generated__/MeetingOptionsQuery.graphql'
 import {Menu} from '../ui/Menu/Menu'
 import {MenuContent} from '../ui/Menu/MenuContent'
@@ -89,7 +89,7 @@ const MeetingOptions = (props: Props) => {
       trigger={
         <OptionsButton>
           <IconLabel icon='tune' iconLarge />
-          <div className='text-slate-700'>Options</div>
+          <div className='text-fg-primary'>Options</div>
         </OptionsButton>
       }
     >
@@ -98,7 +98,7 @@ const MeetingOptions = (props: Props) => {
           <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
             <TooltipTrigger asChild>
               <MenuItem onSelect={handleClick} isDisabled={isDisabled}>
-                <div className='mr-3 flex text-slate-700'>{<SwapHorizIcon />}</div>
+                <div className='mr-3 flex text-fg-primary'>{<SwapHorizIcon />}</div>
                 Change template
               </MenuItem>
             </TooltipTrigger>
