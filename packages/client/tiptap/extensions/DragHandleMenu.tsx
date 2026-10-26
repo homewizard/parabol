@@ -1,8 +1,7 @@
-import ContentCopy from '@mui/icons-material/ContentCopy'
-import DeleteOutlined from '@mui/icons-material/DeleteOutlined'
 import type {Editor} from '@tiptap/core'
 import type {Node} from '@tiptap/pm/model'
 import {useLayoutEffect, useRef} from 'react'
+import {ContentCopy, DeleteOutlined} from '~/ui/icons'
 import {Menu} from '../../ui/Menu/Menu'
 import {MenuContent} from '../../ui/Menu/MenuContent'
 import {MenuItem} from '../../ui/Menu/MenuItem'
@@ -40,7 +39,11 @@ const DragHandleMenu = (props: DragHandleMenuProps) => {
     if (json.type === 'pageLinkBlock' && json.attrs?.canonical) {
       json.attrs = {...json.attrs, canonical: false}
     }
-    editor.commands.insertContentAt(pos + node.nodeSize, json)
+    editor
+      .chain()
+      .focus()
+      .insertContentAt(pos + node.nodeSize, json)
+      .run()
   }
 
   const handleDelete = () => {
@@ -49,6 +52,7 @@ const DragHandleMenu = (props: DragHandleMenuProps) => {
       return
     }
     editor.view.dispatch(editor.state.tr.delete(pos, pos + node.nodeSize))
+    editor.commands.focus()
   }
 
   const handleContentKeyDown = (e: React.KeyboardEvent) => {
@@ -90,15 +94,15 @@ const DragHandleMenu = (props: DragHandleMenuProps) => {
         className='z-50'
       >
         <MenuItem onSelect={handleDuplicate}>
-          <ContentCopy className='mr-2 text-base text-slate-600' />
+          <ContentCopy className='mr-2 text-base text-fg-secondary' />
           <span className='flex-1 text-left'>Duplicate block</span>
-          <span className='ml-4 text-slate-400 text-xs'>{modKey}+D</span>
+          <span className='ml-4 text-fg-muted text-xs'>{modKey}+D</span>
         </MenuItem>
         {showDelete && (
           <MenuItem onSelect={handleDelete}>
-            <DeleteOutlined className='mr-2 text-base text-slate-600' />
+            <DeleteOutlined className='mr-2 text-base text-fg-secondary' />
             <span className='flex-1 text-left'>Delete block</span>
-            <span className='ml-4 text-slate-400 text-xs'>Del</span>
+            <span className='ml-4 text-fg-muted text-xs'>Del</span>
           </MenuItem>
         )}
       </MenuContent>

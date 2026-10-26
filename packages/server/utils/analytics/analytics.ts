@@ -6,12 +6,12 @@ import {PARABOL_AI_USER_ID} from '../../../client/utils/constants'
 import type {TeamLimitsEmailType} from '../../billing/helpers/sendTeamsLimitEmail'
 import type MeetingTemplate from '../../database/types/MeetingTemplate'
 import type {DataLoaderWorker} from '../../graphql/graphql'
+import type {TeamPromptMemberResponse} from '../../graphql/mutations/helpers/groupTeamPromptResponsesByUser'
 import type {ModifyType, ReactableEnum} from '../../graphql/public/resolverTypes'
-import type {IntegrationProviderServiceEnumType} from '../../integrations/TaskIntegrationManagerFactory'
 import type {
   MeetingSeries,
   SlackNotification,
-  TeamPromptResponse,
+  SuggestedGroupsModeType,
   TemplateScale
 } from '../../postgres/types'
 import type {
@@ -20,6 +20,7 @@ import type {
   MeetingTypeEnum,
   RetrospectiveMeeting
 } from '../../postgres/types/Meeting'
+import type {Integrationproviderserviceenum} from '../../postgres/types/pg'
 import {AmplitudeAnalytics} from './amplitude/AmplitudeAnalytics'
 import {createMeetingProperties} from './helpers'
 
@@ -100,12 +101,6 @@ export type MeetingSettings = {
   videoMeetingURL?: string | null
 }
 
-export type WebSocketProperties = {
-  socketCount: number
-  socketId: string
-  tms: string[]
-}
-
 export type MusicEventProperties = {
   meetingId: string
   trackName: string
@@ -114,6 +109,10 @@ export type MusicEventProperties = {
 }
 
 export type AnalyticsEvent =
+  // confluence export
+  | 'Confluence Export Started'
+  | 'Confluence Export Completed'
+  | 'Confluence Export Failed'
   // meeting
   | 'Meeting Started'
   | 'Meeting Joined'
@@ -162,7 +161,6 @@ export type AnalyticsEvent =
   // page
   | 'Page Created'
   // insight
-  | 'Insight Generated'
   | 'Page Insights Generated'
   // user
   | 'Account Created'
@@ -171,8 +169,6 @@ export type AnalyticsEvent =
   | 'Account Unpaused'
   | 'Account Name Changed'
   | 'User Removed From Org'
-  | 'Connect WebSocket'
-  | 'Disconnect WebSocket'
   | 'Summary Email Setting Changed'
   | 'Page Invitation Email Setting Changed'
   // snackbar
@@ -206,7 +202,6 @@ export type AnalyticsEvent =
   | 'Slack notification sent'
   | 'Smart group title changed'
   | 'Task due date set'
-  | 'Insights Feedback Submitted'
 
 /**
  * Provides a unified interface for sending all the analytics events
@@ -222,7 +217,7 @@ class Analytics {
   teamPromptEnd = async (
     completedMeeting: AnyMeeting,
     meetingMembers: AnyMeetingMember[],
-    responses: TeamPromptResponse[],
+    responses: TeamPromptMemberResponse[],
     dataLoader: DataLoaderWorker
   ) => {
     const userIdsResponses: Record<string, string> = responses.reduce(
@@ -250,6 +245,24 @@ class Analytics {
   }
 
   checkInEnd = async (
+    completedMeeting: AnyMeeting,
+    meetingMembers: AnyMeetingMember[],
+    dataLoader: DataLoaderWorker
+  ) =>
+    Promise.all(
+      meetingMembers.map((meetingMember) =>
+        this.meetingEnd(
+          dataLoader,
+          meetingMember.userId,
+          completedMeeting,
+          meetingMembers,
+          undefined,
+          undefined
+        )
+      )
+    )
+
+  teamHealthEnd = async (
     completedMeeting: AnyMeeting,
     meetingMembers: AnyMeetingMember[],
     dataLoader: DataLoaderWorker
@@ -427,7 +440,7 @@ class Analytics {
 
   templateMetrics = (
     user: AnalyticsUser,
-    template: MeetingTemplate,
+    template: Pick<MeetingTemplate, 'id' | 'type' | 'scope' | 'teamId'>,
     eventName: 'Template Created' | 'Template Cloned' | 'Template Shared'
   ) => {
     this.track(user, eventName, {
@@ -469,7 +482,7 @@ class Analytics {
   integrationAdded = (
     user: AnalyticsUser,
     teamId: string,
-    service: IntegrationProviderServiceEnumType | 'slack'
+    service: Integrationproviderserviceenum | 'slack'
   ) => {
     this.track(user, 'Integration Added', {
       teamId,
@@ -480,7 +493,7 @@ class Analytics {
   integrationRemoved = (
     user: AnalyticsUser,
     teamId: string,
-    service: IntegrationProviderServiceEnumType | 'slack'
+    service: Integrationproviderserviceenum | 'slack'
   ) => {
     this.track(user, 'Integration Removed', {
       teamId,
@@ -566,7 +579,7 @@ class Analytics {
   taskPublished = (
     user: AnalyticsUser,
     taskProperties: TaskProperties,
-    service: IntegrationProviderServiceEnumType
+    service: Integrationproviderserviceenum
   ) => {
     this.track(user, 'Task Published', {
       ...taskProperties,
@@ -587,11 +600,44 @@ class Analytics {
     this.track(user, 'Page Created', {pageId})
   }
 
-  // insight
-  insightGenerated = (user: AnalyticsUser, insightId: number, teamId: string) => {
-    this.track(user, 'Insight Generated', {insightId, teamId})
+  confluenceExportStarted = (
+    user: AnalyticsUser,
+    properties: {pageExportId: string; pageCount: number}
+  ) => {
+    this.track(user, 'Confluence Export Started', properties)
   }
 
+  confluenceExportCompleted = (
+    user: AnalyticsUser,
+    properties: {
+      pageExportId: string
+      pageCount: number
+      successCount: number
+      attachmentCount: number
+      durationMs: number
+      status: string
+      degradedCensus: string
+    }
+  ) => {
+    this.track(user, 'Confluence Export Completed', properties)
+  }
+
+  confluenceExportFailed = (
+    user: AnalyticsUser,
+    properties: {
+      pageExportId: string
+      pageCount: number
+      successCount: number
+      attachmentCount: number
+      durationMs: number
+      status: string
+      degradedCensus: string
+    }
+  ) => {
+    this.track(user, 'Confluence Export Failed', properties)
+  }
+
+  // insight
   pageInsightsGenerated = (user: AnalyticsUser) => {
     this.track(user, 'Page Insights Generated')
   }
@@ -638,14 +684,6 @@ class Analytics {
   userRemovedFromOrg = (user: AnalyticsUser, orgId: string) =>
     this.track(user, 'User Removed From Org', {user: user.id, orgId})
 
-  websocketConnected = (user: AnalyticsUser, websocketProperties: WebSocketProperties) => {
-    this.track(user, 'Connect WebSocket', websocketProperties)
-  }
-
-  websocketDisconnected = (user: AnalyticsUser, websocketProperties: WebSocketProperties) => {
-    this.track(user, 'Disconnect WebSocket', websocketProperties)
-  }
-
   toggleSubToPageInvitationEmail = (
     user: AnalyticsUser,
     subscribeToPageInvitationEmail: boolean
@@ -665,12 +703,43 @@ class Analytics {
     this.track(user, 'Notification Email Sent', {type, orgId})
   }
 
-  suggestedGroupsGenerated = (user: AnalyticsUser, meetingId: string, teamId: string) => {
-    this.track(user, 'Suggested Groups Generated', {meetingId, teamId})
+  // userPrompt text is deliberately never tracked: it is free text authored inside a meeting and
+  // can quote reflection content. hasUserPrompt answers "do people steer it?" without that risk.
+  suggestedGroupsGenerated = (
+    user: AnalyticsUser,
+    meetingId: string,
+    teamId: string,
+    props: {
+      mode: SuggestedGroupsModeType
+      hasUserPrompt: boolean
+      sameColumnOnly: boolean
+      /** True when the stored result was reused, so no LLM call was made */
+      cacheHit: boolean
+      reflectionCount: number
+      /** Reflect columns considered, which is also the LLM call count when sameColumnOnly */
+      promptCount: number
+      suggestedGroupCount: number
+      /** Reflections in multi-card suggestions. 0 means the suggestions were a no-op */
+      mergedReflectionCount: number
+      durationMs: number
+    }
+  ) => {
+    this.track(user, 'Suggested Groups Generated', {meetingId, teamId, ...props})
   }
 
-  suggestGroupsClicked = (user: AnalyticsUser, meetingId: string, teamId: string) => {
-    this.track(user, 'Suggest Groups Clicked', {meetingId, teamId})
+  suggestGroupsClicked = (
+    user: AnalyticsUser,
+    meetingId: string,
+    teamId: string,
+    props: {
+      mode: SuggestedGroupsModeType
+      /** Only the deprecated autogroup rearranges the board, so this counts old clients left */
+      source: 'legacyAutogroup'
+      sameColumnOnly: boolean
+      suggestedGroupCount: number
+    }
+  ) => {
+    this.track(user, 'Suggest Groups Clicked', {meetingId, teamId, ...props})
   }
 
   resetGroupsClicked = (user: AnalyticsUser, meetingId: string, teamId: string) => {
@@ -784,19 +853,6 @@ class Analytics {
       meetingId,
       modifyType,
       success
-    })
-  }
-
-  insightsFeedbackSubmitted = (
-    user: AnalyticsUser,
-    isUseful: boolean,
-    feedback: string,
-    canEmail: boolean
-  ) => {
-    this.track(user, 'Insights Feedback Submitted', {
-      isUseful,
-      feedback,
-      canEmail
     })
   }
 

@@ -22,7 +22,7 @@ const GCalPanel = (props: Props) => {
   const {meetingRef} = props
   const meeting = useFragment(
     graphql`
-      fragment GCalIntegrationPanel_meeting on TeamPromptMeeting {
+      fragment GCalIntegrationPanel_meeting on NewMeeting {
         ...useInspirationDrawer_meeting
         id
         teamId
@@ -30,6 +30,7 @@ const GCalPanel = (props: Props) => {
           id
           title
           content
+          promptId
         }
         viewerMeetingMember {
           teamMember {
@@ -54,8 +55,10 @@ const GCalPanel = (props: Props) => {
 
   const teamMember = meeting.viewerMeetingMember?.teamMember
 
-  const {dateRange, setDateRange, viewerResponse, onResultCount, getHasResults} =
-    useInspirationDrawer('gcal', meeting)
+  const {dateRange, setDateRange, onResultCount, getResultCount} = useInspirationDrawer(
+    'gcal',
+    meeting
+  )
 
   // The events query requires a bounded window, so fall back to the past week when the filter is cleared.
   const startDate = dateRange?.startAt ?? new Date(TODAY_MIDNIGHT - ms('7d')).toJSON()
@@ -63,8 +66,6 @@ const GCalPanel = (props: Props) => {
   // Show past-only ranges most-recent-first; show chronologically once the window reaches into the future.
   const order = new Date(endDate).getTime() <= Date.now() ? 'DESC' : 'ASC'
   const searchQuery = JSON.stringify({startDate, endDate})
-
-  const hasResults = getHasResults(searchQuery)
 
   const atmosphere = useAtmosphere()
   const mutationProps = useMutationProps()
@@ -89,30 +90,35 @@ const GCalPanel = (props: Props) => {
     })
   }
 
+  const filterBar = (
+    <div className='mb-2 flex w-full px-2'>
+      <WorkDrawerDateFilter dateRange={dateRange} setDateRange={setDateRange} />
+    </div>
+  )
+
   return (
     <>
       {teamMember?.integrations.gcal?.auth?.providerId ? (
         <>
-          <div className='mt-4 mb-2 flex w-full px-4'>
-            <WorkDrawerDateFilter dateRange={dateRange} setDateRange={setDateRange} />
-          </div>
-          {hasResults && (
+          {filterBar}
+          <div className='flex min-h-0 flex-1 flex-col overflow-y-auto'>
             <InspirationItemsPanel
               meetingId={meeting.id}
               service='gcal'
               searchQuery={searchQuery}
               initialItems={meeting.gcalInspirationItems}
-              viewerResponse={viewerResponse}
-            />
-          )}
-          <GCalIntegrationResultsRoot
-            teamId={teamMember.teamId}
-            startDate={startDate}
-            endDate={endDate}
-            order={order}
-            searchQuery={searchQuery}
-            onResultCount={onResultCount}
-          />
+              hideDraftPanel={!getResultCount(searchQuery)}
+            >
+              <GCalIntegrationResultsRoot
+                teamId={teamMember.teamId}
+                startDate={startDate}
+                endDate={endDate}
+                order={order}
+                searchQuery={searchQuery}
+                onResultCount={onResultCount}
+              />
+            </InspirationItemsPanel>
+          </div>
         </>
       ) : (
         <div className='flex flex-col items-center gap-2 pt-12'>
@@ -124,12 +130,12 @@ const GCalPanel = (props: Props) => {
             Connect to Google Calendar to view your recent events.
           </div>
           <button
-            className='mt-4 cursor-pointer rounded-full bg-sky-500 px-8 py-2 font-semibold text-white hover:bg-sky-600'
+            className='mt-4 cursor-pointer rounded-md bg-sky-500 px-8 py-2 font-semibold text-white hover:bg-sky-600'
             onClick={authGCal}
           >
             Connect
           </button>
-          {error && <div className='text-tomato-500'>{error.message}</div>}
+          {error && <div className='text-fg-error'>{error.message}</div>}
         </div>
       )}
     </>

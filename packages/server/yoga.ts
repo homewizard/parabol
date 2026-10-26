@@ -1,4 +1,6 @@
 import type uws from 'uWebSockets.js'
+import {readFileSync} from 'node:fs'
+import path from 'node:path'
 import {OneOfInputObjectsRule, useExtendedValidation} from '@envelop/extended-validation'
 import {useDeferStream} from '@graphql-yoga/plugin-defer-stream'
 import {usePersistedOperations} from '@graphql-yoga/plugin-persisted-operations'
@@ -6,6 +8,8 @@ import {useCookies} from '@whatwg-node/server-plugin-cookies'
 import {print} from 'graphql'
 import {createYoga, type GraphQLParams, useReadinessCheck} from 'graphql-yoga'
 import {sql} from 'kysely'
+import getProjectRoot from '../../scripts/webpack/utils/getProjectRoot'
+import {MAX_FILE_SIZE_PAID} from '../client/utils/constants'
 import sleep from '../client/utils/sleep'
 import type AuthToken from './database/types/AuthToken'
 import {getIsBusy} from './getIsBusy'
@@ -59,17 +63,29 @@ export const extractPersistedOperationId = (
 }
 
 const queryMap = {} as Record<string, string | undefined>
+// In development the map is read off disk instead of bundled, because relay keeps persisting queries while the server runs
 const primeQueryMap = () => {
   if (__PRODUCTION__) return
-  const primed = require('../../queryMap.json')
+  let primed: Record<string, string>
+  try {
+    primed = JSON.parse(readFileSync(path.join(getProjectRoot()!, 'queryMap.json'), 'utf-8'))
+  } catch {
+    Logger.warn('queryMap.json not found. Run `pnpm relay:build`')
+    return
+  }
   Object.keys(primed).forEach((key) => {
-    queryMap[key] = primed[key].replace('@stream_HACK', '@stream')
+    queryMap[key] = primed[key]!.replace('@stream_HACK', '@stream')
   })
 }
 primeQueryMap()
 
 export const getPersistedOperation = async (docId: string) => {
   let queryString = queryMap[docId]
+  if (!queryString && !__PRODUCTION__) {
+    // a query that was written after the server started
+    primeQueryMap()
+    queryString = queryMap[docId]
+  }
   if (!queryString) {
     const queryStringRes = await getKysely()
       .selectFrom('QueryMap')
@@ -86,10 +102,14 @@ export const getPersistedOperation = async (docId: string) => {
   return queryString || null
 }
 
+// the largest upload plus the multipart boundaries and operations JSON that wrap it
+const MAX_REQUEST_BODY_SIZE = MAX_FILE_SIZE_PAID + 1_000_000
+
 export const yoga = createYoga<ServerContext, UserContext>({
   graphqlEndpoint: '/graphql',
   landingPage: false,
   logging: Logger,
+  maxRequestBodySize: MAX_REQUEST_BODY_SIZE,
   plugins: [
     useRemoveDuplicateTransferEncoding,
     useSchemaLink,
@@ -112,8 +132,6 @@ export const yoga = createYoga<ServerContext, UserContext>({
         'acceptRequestToJoinDomain',
         'acceptTeamInvitation',
         'addApprovedOrganizationDomains',
-        'addAtlassianAuth',
-        'addGitHubAuth',
         'addIntegrationProvider',
         'addSlackAuth',
         'addTeamMemberIntegrationAuth',
@@ -125,6 +143,7 @@ export const yoga = createYoga<ServerContext, UserContext>({
         'deleteOAuthAPIProvider',
         'deleteUser',
         'denyPushInvitation',
+        'disconnectSAML',
         'emailPasswordReset',
         'hardDeleteUser',
         'invalidateSessions',
@@ -140,10 +159,8 @@ export const yoga = createYoga<ServerContext, UserContext>({
         'pushInvitation',
         'removeAllSlackAuths',
         'removeApprovedOrganizationDomains',
-        'removeAtlassianAuth',
         'removeAuthIdentity',
         'removeFeatureFlagOwner',
-        'removeGitHubAuth',
         'removeIntegrationProvider',
         'removeOrgUsers',
         'removeSlackAuth',
@@ -186,9 +203,12 @@ export const yoga = createYoga<ServerContext, UserContext>({
       } as ExcludedArgs,
       hooks: {
         execute: (span, args) => {
-          const userId = args.contextValue.authToken?.sub
-          if (userId) {
-            span.setTag('userId', userId)
+          const {authToken} = args.contextValue
+          if (authToken?.sub) {
+            span.setTag('userId', authToken.sub)
+          }
+          if (authToken?.aud) {
+            span.setTag('auth.aud', authToken.aud)
           }
         }
       },

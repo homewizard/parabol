@@ -4,9 +4,8 @@
   "files": {
     "ignoreUnknown": true,
     "includes": [
-      "**/*.{js,mjs,cjs,ts,tsx,jsx,json,jsonc,css,html,md,graphql}",
+      "**/*.{js,mjs,cjs,ts,mts,tsx,jsx,json,jsonc,css,html,md,graphql}",
       // Explicitly exclude undesired dirs by not listing them
-      "!**/.nx/**",
       "!**/build/**",
       "!**/dist/**",
       "!**/dev/**",
@@ -220,6 +219,23 @@
         "rules": {
           "style": {
             "noCommonJs": "off"
+          }
+        }
+      }
+    },
+    {
+      "includes": ["packages/server/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "googleapis": "Import a single API instead, e.g. googleapis/build/src/apis/calendar. The package root pulls every Google API (32MB) into the server bundle."
+                }
+              }
+            }
           }
         }
       }

@@ -1,32 +1,14 @@
-import styled from '@emotion/styled'
 import graphql from 'babel-plugin-relay/macro'
-import {type ReactNode, type RefObject, useMemo, useRef} from 'react'
+import {type CSSProperties, type ReactNode, type RefObject, useMemo, useRef} from 'react'
 import {type PreloadedQuery, usePreloadedQuery} from 'react-relay'
 import useAtmosphere from '~/hooks/useAtmosphere'
 import {useCoverable} from '~/hooks/useControlBarCovers'
-import {Breakpoint, DiscussionThreadEnum, MeetingControlBarEnum} from '~/types/constEnums'
+import {MeetingControlBarEnum} from '~/types/constEnums'
 import type {DiscussionThreadQuery} from '../__generated__/DiscussionThreadQuery.graphql'
-import {Elevation} from '../styles/elevation'
-import makeMinWidthMediaQuery from '../utils/makeMinWidthMediaQuery'
+import {cn} from '../ui/cn'
 import DiscussionThreadInput from './DiscussionThreadInput'
 import DiscussionThreadList, {type DiscussionThreadables} from './DiscussionThreadList'
 import {isLocalPoll} from './Poll/local/newPoll'
-
-const Wrapper = styled('div')<{isExpanded: boolean; width?: string}>(({isExpanded, width}) => ({
-  background: '#fff',
-  borderRadius: 4,
-  boxShadow: Elevation.DISCUSSION_THREAD,
-  display: 'flex',
-  flexDirection: 'column',
-  justifyContent: 'space-between',
-  height: '100%',
-  overflow: 'hidden',
-  width: width || '100%',
-  [makeMinWidthMediaQuery(Breakpoint.SIDEBAR_LEFT)]: {
-    height: isExpanded ? '100%' : `calc(100% - ${MeetingControlBarEnum.COVER_HEIGHT}px)`,
-    width: DiscussionThreadEnum.WIDTH
-  }
-}))
 
 interface Props {
   meetingContentRef?: RefObject<HTMLDivElement>
@@ -35,16 +17,18 @@ interface Props {
   queryRef: PreloadedQuery<DiscussionThreadQuery>
   header?: ReactNode
   emptyState?: ReactNode
+  autoFocus?: boolean
 }
 
 const DiscussionThread = (props: Props) => {
-  const {meetingContentRef, allowedThreadables, width, queryRef, header, emptyState} = props
+  const {meetingContentRef, allowedThreadables, width, queryRef, header, emptyState, autoFocus} =
+    props
   const {viewerId} = useAtmosphere()
   const isDrawer = !!width // hack to say this is in a poker meeting
   const ref = useRef<HTMLDivElement>(null)
   const data = usePreloadedQuery<DiscussionThreadQuery>(
     graphql`
-      query DiscussionThreadQuery($discussionId: ID!) {
+      query DiscussionThreadQuery($discussionId: ID!) @raw_response_type {
         viewer {
           ...DiscussionThreadInput_viewer
           ...DiscussionThreadList_viewer
@@ -105,7 +89,16 @@ const DiscussionThread = (props: Props) => {
   const isCreatingPoll = threadables.some(isLocalPoll)
 
   return (
-    <Wrapper isExpanded={isExpanded} width={width} ref={ref}>
+    <div
+      className={cn(
+        // sidebar-left height offset = MeetingControlBarEnum.COVER_HEIGHT (68px); width = DiscussionThreadEnum.WIDTH (360px)
+        // no card of its own — the thread sits directly on the drawer well, like the other tabs
+        'flex h-full sidebar-left:w-[360px] w-(--discussion-thread-width) flex-col justify-between overflow-hidden',
+        !isExpanded && 'sidebar-left:h-[calc(100%-68px)]'
+      )}
+      style={{'--discussion-thread-width': width || '100%'} as CSSProperties}
+      ref={ref}
+    >
       <DiscussionThreadList
         discussion={discussion}
         allowedThreadables={allowedThreadables}
@@ -122,8 +115,9 @@ const DiscussionThread = (props: Props) => {
         discussion={discussion}
         viewer={viewer}
         isCreatingPoll={isCreatingPoll}
+        autoFocus={autoFocus}
       />
-    </Wrapper>
+    </div>
   )
 }
 

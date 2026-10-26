@@ -13,7 +13,10 @@ graphql`
           id
           ... on ReflectPhase {
             reflectPrompts {
+              ...PhaseItemColumn_prompt @relay(mask: false)
+              ...GroupingKanbanColumn_prompt @relay(mask: false)
               id
+              sortOrder
             }
           }
         }
@@ -30,7 +33,7 @@ const mutation = graphql`
           message
         }
       }
-      ...UpdateMeetingTemplateMutation_meeting @relay(mask: false)
+      ...UpdateMeetingTemplateMutation_meeting @relay(mask: false) @alias
     }
   }
 `

@@ -8,8 +8,6 @@ import createSSR from './createSSR'
 import {disconnectAllSockets} from './disconnectAllSockets'
 import {setIsShuttingDown} from './getIsShuttingDown'
 import {hocusPocusHandler} from './hocusPocusHandler'
-import ICSHandler from './ICSHandler'
-import googleDriveWebhookHandler from './integrations/gdrive/googleDriveWebhookHandler'
 import mattermostWebhookHandler from './integrations/mattermost/mattermostWebhookHandler'
 import zoomWebhookHandler from './integrations/zoom/zoomWebhookHandler'
 import listenHandler from './listenHandler'
@@ -65,7 +63,6 @@ const app = uws
   .get('/favicon.ico', PWAHandler)
   .get('/sw.js', PWAHandler)
   .get('/manifest.json', PWAHandler)
-  .get('/email/createics', ICSHandler)
   .get('/self-hosted/*', selfHostedHandler)
   .get('/assets/*', assetProxyHandler)
   .get('/build/*', buildProxyHandler)
@@ -74,7 +71,6 @@ const app = uws
   .get('/ready', yoga)
   .post('/stripe', stripeWebhookHandler)
   .post('/mattermost', mattermostWebhookHandler)
-  .post('/gdrive', googleDriveWebhookHandler)
   .post('/zoom', zoomWebhookHandler)
   .post('/graphql', async (res, req) => {
     // uWS deletes the req before the first await, so we must read it now

@@ -28,16 +28,19 @@ import {
   selectTasks
 } from '../../../postgres/select'
 import {getUserId, isSuperUser, isTeamMember} from '../../../utils/authorization'
+import type {FeatureFlagName} from '../../../utils/featureFlags'
 import getDomainFromEmail from '../../../utils/getDomainFromEmail'
 import getMonthlyStreak from '../../../utils/getMonthlyStreak'
 import getSAMLURLFromEmail from '../../../utils/getSAMLURLFromEmail'
 import {getSSOMetadataFromURL} from '../../../utils/getSSOMetadataFromURL'
+import getUserDetail from '../../../utils/getUserDetail'
 import {getUserSocketCount} from '../../../utils/getUserSocketCount'
 import logError from '../../../utils/logError'
 import standardError from '../../../utils/standardError'
 import errorFilter from '../../errorFilter'
 import type {DataLoaderWorker} from '../../graphql'
 import isValid from '../../isValid'
+import canReadMeetingSeries from '../../mutations/helpers/canReadMeetingSeries'
 import {getUserQueryJobData, publishToEmbedder} from '../../mutations/helpers/publishToEmbedder'
 import connectionFromTasks from '../../queries/helpers/connectionFromTasks'
 import connectionFromTemplateArray from '../../queries/helpers/connectionFromTemplateArray'
@@ -50,6 +53,8 @@ import getSignOnURL from '../mutations/helpers/SAMLHelpers/getSignOnURL'
 import type {ReqResolvers} from './ReqResolvers'
 
 const SIMILARITY_THRESHOLD = 0.5
+const TEMPLATE_SEARCH_LIMIT = 12
+const TEMPLATE_SEARCH_MAX_GAP = 0.05
 
 const getValidUserIds = async (
   userIds: null | string[] | undefined,
@@ -77,6 +82,12 @@ const User: ReqResolvers<'User'> = {
     return dataLoader.get('organizations').loadNonNull(orgId)
   },
   invoices,
+  freeCustomRetroTemplatesRemaining: ({id: userId}, _args, {dataLoader}) =>
+    getUserDetail(userId, 'freeCustomRetroTemplatesRemaining', dataLoader),
+  freeCustomPokerTemplatesRemaining: ({id: userId}, _args, {dataLoader}) =>
+    getUserDetail(userId, 'freeCustomPokerTemplatesRemaining', dataLoader),
+  freeCustomStandupTemplatesRemaining: ({id: userId}, _args, {dataLoader}) =>
+    getUserDetail(userId, 'freeCustomStandupTemplatesRemaining', dataLoader),
   archivedTasks: async (_source, {first, after, teamId}, {authToken}) => {
     const userId = getUserId(authToken)
     const tasks = await selectTasks()
@@ -124,8 +135,7 @@ const User: ReqResolvers<'User'> = {
     if (!Number.isFinite(numericId)) return null
     const meetingSeries = await dataLoader.get('meetingSeries').load(numericId)
     if (!meetingSeries) return null
-    if (!isTeamMember(authToken, meetingSeries.teamId)) return null
-    return meetingSeries
+    return canReadMeetingSeries(meetingSeries, authToken) ? meetingSeries : null
   },
   meetings: async (
     _source,
@@ -695,7 +705,9 @@ const User: ReqResolvers<'User'> = {
     return templates.filter((_, i) => accessible[i])
   },
   featureFlag: async ({id: userId}, {featureName}, {dataLoader}) => {
-    return await dataLoader.get('featureFlagByOwnerId').load({ownerId: userId, featureName})
+    return await dataLoader
+      .get('featureFlagByOwnerId')
+      .load({ownerId: userId, featureName: featureName as FeatureFlagName})
   },
   availableTemplates: async ({id: userId}, {first, after, type}, {authToken, dataLoader}) => {
     const viewerId = getUserId(authToken)
@@ -762,7 +774,6 @@ const User: ReqResolvers<'User'> = {
       }))
       .filter((activity) => !type || activity.type === type)
       .sort((a, b) => (a.sortOrder > b.sortOrder ? -1 : 1))
-
     return connectionFromTemplateArray(allActivities, first, after)
   },
   templateSearch: async ({id: userId}, {search}, {authToken, dataLoader}) => {
@@ -793,7 +804,7 @@ const User: ReqResolvers<'User'> = {
 
     const pg = getKysely()
     const tableName = getEmbeddingsTableName(activeEmbeddingModelId)
-    const similarEmbeddings = await pg
+    const similarTemplates = await pg
       .with('Model', (qc) =>
         qc
           .selectFrom(tableName)
@@ -821,19 +832,27 @@ const User: ReqResolvers<'User'> = {
           ])
       )
       .selectFrom('CosineSimilarity')
-      .select(['embeddingId', 'similarity', 'embeddingsMetadataId', 'refId'])
+      .select(({fn}) => ['refId', fn.max('similarity').as('similarity')])
       .where('similarity', '>=', SIMILARITY_THRESHOLD)
+      .groupBy('refId')
       .orderBy('similarity', 'desc')
       .execute()
 
-    const aiActivityIds = similarEmbeddings.map(({refId}) => refId)
-
     // TODO filter out seasonal templates
-    const activities = await dataLoader.get('meetingTemplates').loadMany(aiActivityIds)
-    const accessibleActivities = activities.filter(isValid).filter((activity) => {
-      return activity.scope !== 'TEAM' || teamIds.includes(activity.teamId)
+    const activities = await dataLoader
+      .get('meetingTemplates')
+      .loadMany(similarTemplates.map(({refId}) => refId))
+    const accessibleMatches = similarTemplates.flatMap(({similarity}, idx) => {
+      const activity = activities[idx]
+      if (!isValid(activity)) return []
+      if (activity.scope === 'TEAM' && !teamIds.includes(activity.teamId)) return []
+      return [{activity, similarity}]
     })
-    return accessibleActivities
+    const floor = (accessibleMatches[0]?.similarity ?? 0) - TEMPLATE_SEARCH_MAX_GAP
+    return accessibleMatches
+      .filter(({similarity}) => similarity >= floor)
+      .slice(0, TEMPLATE_SEARCH_LIMIT)
+      .map(({activity}) => activity)
   },
   parseSAMLMetadata: async (_source, {metadataURL, domain}) => {
     const metadata = await getSSOMetadataFromURL(metadataURL)

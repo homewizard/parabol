@@ -5,6 +5,7 @@ import getKysely from '../../../postgres/getKysely'
 import {analytics} from '../../../utils/analytics/analytics'
 import {Logger} from '../../../utils/Logger'
 import type {DataLoaderWorker} from '../../graphql'
+import reassignMeetingSeriesOwner from './reassignMeetingSeriesOwner'
 import removeTeamMember from './removeTeamMember'
 import resolveDowngradeToStarter from './resolveDowngradeToStarter'
 
@@ -31,6 +32,17 @@ const removeFromOrg = async (
       return removeTeamMember(teamMemberId, {evictorUserId}, dataLoader)
     })
   )
+  const teamFailures = perTeamSettled.filter((res) => res.status === 'rejected')
+  if (teamFailures.length > 0) {
+    // Bail before touching the OrganizationUser. Leaving them on a team in an org they're no longer
+    // a member of passes isTeamMember but fails isViewerOnOrg, breaking org-scoped fields like
+    // Team.organization for them. Staying in the org is recoverable, this is not
+    Logger.error(
+      `removeFromOrg: could not remove ${userId} from every team in org ${orgId}`,
+      teamFailures.map((res) => res.reason)
+    )
+    throw new Error('Failed to remove the user from every team in the organization')
+  }
   const perTeamRes = perTeamSettled
     .filter((res) => res.status === 'fulfilled')
     .map((res) => res.value)
@@ -91,11 +103,13 @@ const removeFromOrg = async (
           .set({role: 'BILLING_LEADER'})
           .where('id', '=', nextInLine.id)
           .execute()
+        dataLoader.clearAll('organizationUsers')
       } else if (organization.tier !== 'starter') {
         await resolveDowngradeToStarter(orgId, organization.stripeSubscriptionId!, user, dataLoader)
       }
     }
   }
+  await reassignMeetingSeriesOwner(userId, orgId, orgTeamIds, dataLoader)
   try {
     await adjustUserCount(userId, orgId, InvoiceItemType.REMOVE_USER, dataLoader)
   } catch (e) {

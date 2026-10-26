@@ -4,12 +4,11 @@ import {type PreloadedQuery, useFragment, usePreloadedQuery} from 'react-relay'
 import type {ReviewRequestToJoinOrgModal_viewer$key} from '../__generated__/ReviewRequestToJoinOrgModal_viewer.graphql'
 import type {ReviewRequestToJoinOrgModalQuery} from '../__generated__/ReviewRequestToJoinOrgModalQuery.graphql'
 import useAcceptRequestToJoinDomainMutation from '../mutations/useAcceptRequestToJoinDomainMutation'
+import {Button} from '../ui/Button/Button'
 import {Dialog} from '../ui/Dialog/Dialog'
 import {DialogContent} from '../ui/Dialog/DialogContent'
 import {DialogTitle} from '../ui/Dialog/DialogTitle'
 import Checkbox from './Checkbox'
-import PrimaryButton from './PrimaryButton'
-import SecondaryButton from './SecondaryButton'
 
 const ReviewRequestToJoinOrgModalViewerFragment = graphql`
   fragment ReviewRequestToJoinOrgModal_viewer on User
@@ -84,13 +83,13 @@ const ReviewRequestToJoinOrgModal = (props: Props) => {
         <DialogTitle>Add teammate</DialogTitle>
         {!domainJoinRequest ? (
           <>
-            <div className='py-4 text-slate-700 text-sm leading-relaxed'>
+            <div className='py-4 text-fg-primary text-sm leading-relaxed'>
               Request expired or deleted
             </div>
             <div className='flex w-full justify-end'>
-              <SecondaryButton onClick={onClose} size='small'>
+              <Button variant='outline' onClick={onClose} size='sm'>
                 Cancel
-              </SecondaryButton>
+              </Button>
             </div>
           </>
         ) : (
@@ -99,7 +98,7 @@ const ReviewRequestToJoinOrgModal = (props: Props) => {
               Which teams would you like to add <strong>{domainJoinRequest.createdByEmail}</strong>{' '}
               to?
             </div>
-            <div className='overflow-y-scroll pb-2 text-slate-700 text-sm leading-relaxed'>
+            <div className='overflow-y-scroll pb-2 text-fg-primary text-sm leading-relaxed'>
               {sortedTeams.map((team) => {
                 const {id: teamId, name: teamName, organization, teamMembers} = team
                 const {name: orgName} = organization
@@ -126,7 +125,7 @@ const ReviewRequestToJoinOrgModal = (props: Props) => {
                     <Checkbox
                       active={active}
                       disabled={isAlreadyMember}
-                      className={active && !isAlreadyMember ? 'text-sky-500' : undefined}
+                      className={active && !isAlreadyMember ? 'text-accent' : undefined}
                     />
                     <label
                       className={`ml-2 ${
@@ -140,12 +139,18 @@ const ReviewRequestToJoinOrgModal = (props: Props) => {
               })}
             </div>
             <div className='flex w-full justify-end gap-2 pt-2'>
-              <SecondaryButton onClick={onClose} size='small' disabled={submitting}>
+              <Button variant='outline' onClick={onClose} size='sm' disabled={submitting}>
                 Cancel
-              </SecondaryButton>
-              <PrimaryButton size='small' onClick={onAdd} disabled={submitting}>
+              </Button>
+              <Button
+                variant='primary'
+                size='sm'
+                className='text-sm'
+                onClick={onAdd}
+                disabled={submitting}
+              >
                 Add to teams
-              </PrimaryButton>
+              </Button>
             </div>
           </>
         )}

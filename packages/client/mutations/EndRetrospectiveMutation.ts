@@ -37,14 +37,13 @@ graphql`
       summaryPageId
     }
     team {
-      ...TeamInsights_team
       id
       activeMeetings {
         id
       }
     }
     timelineEvent {
-      ...TimelineEventCompletedRetroMeeting_timelineEvent @relay(mask: false)
+      ...TimelineEventCompletedRetroMeeting_timelineEvent @relay(mask: false) @alias
     }
     updatedTaskIds
   }
@@ -73,9 +72,9 @@ const mutation = graphql`
           message
         }
       }
-      ...EndRetrospectiveMutation_notification @relay(mask: false)
-      ...EndRetrospectiveMutation_team @relay(mask: false)
-      ...EndRetrospectiveMutation_meeting @relay(mask: false)
+      ...EndRetrospectiveMutation_notification @relay(mask: false) @alias
+      ...EndRetrospectiveMutation_team @relay(mask: false) @alias
+      ...EndRetrospectiveMutation_meeting @relay(mask: false) @alias
     }
   }
 `

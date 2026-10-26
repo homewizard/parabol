@@ -7,6 +7,8 @@ declare module '*.png' {
 declare module '*.svg'
 declare module '*.mp3'
 declare module '*.woff2'
+// bundler-handled, imported for side effects only. TS7 errors (TS2882) without this
+declare module '*.css'
 
 declare module 'babel-plugin-relay/macro' {
   export {graphql as default} from 'react-relay'
@@ -38,14 +40,12 @@ declare module '*workerManifest.js' {
 declare let __webpack_public_path__: string
 declare const __PRODUCTION__: boolean
 declare const __APP_VERSION__: string
+declare const __COMMIT_HASH__: string
 
 interface Window {
   __ACTION__: {
-    atlassian: string
     datadogClientToken: string | undefined
-    datadogApplicationId: string | undefined
     datadogService: string | undefined
-    github: string
     google: string
     googleAnalytics: string
     mattermostWebhookIntegrationDisabled: boolean | undefined

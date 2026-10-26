@@ -25,9 +25,9 @@ import type {MutationResolvers} from '../resolverTypes'
 
 export const createMeetingMember = (
   meeting: AnyMeeting,
-  teamMember: Pick<TeamMember, 'userId' | 'teamId' | 'isSpectatingPoker'>
+  teamMember: Pick<TeamMember, 'userId' | 'teamId' | 'isSpectatingPoker' | 'isLead'>
 ): Insertable<MeetingMember> => {
-  const {userId, teamId, isSpectatingPoker} = teamMember
+  const {userId, teamId, isSpectatingPoker, isLead} = teamMember
   const {id: meetingId, meetingType} = meeting
   return {
     id: MeetingMemberId.join(meetingId, userId),
@@ -36,7 +36,10 @@ export const createMeetingMember = (
     userId,
     meetingId,
     meetingType,
-    isSpectating: meetingType === 'poker' ? isSpectatingPoker : null,
+    // the team lead is a data collector by default, excluded from the response set until they opt
+    // in. Unlike poker, this is per-meeting & never persisted back to the team member
+    isSpectating:
+      meetingType === 'poker' ? isSpectatingPoker : meetingType === 'teamHealth' ? isLead : null,
     votesRemaining: meetingType === 'retrospective' ? meeting.totalVotes : null
   }
 }

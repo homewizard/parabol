@@ -13,6 +13,7 @@ import type {DataLoaderWorker} from '../../../graphql'
 import isValid from '../../../isValid'
 import type {SlackNotificationEventEnum} from '../../../public/resolverTypes'
 import getSummaryText from './getSummaryText'
+import {getTeamHealthQuestionCount} from './getTeamHealthQuestionCount'
 import type {NotificationIntegrationHelper} from './NotificationIntegrationHelper'
 import {createNotifier} from './Notifier'
 
@@ -47,13 +48,45 @@ export type MSTeamsNotificationAuth = IntegrationProviderMSTeams & {
 }
 
 const createTeamPromptMeetingTitle = (meetingName: string) => `*${meetingName}* is open 💬`
+const createTeamHealthMeetingTitle = (meetingName: string) => `*${meetingName}* is open 💓`
 const createGenericMeetingTitle = () => `Meeting Started 👋`
 
 const meetingTypeTitleLookup: Record<MeetingTypeEnum, (meetingName: string) => string> = {
   action: createGenericMeetingTitle,
   poker: createGenericMeetingTitle,
   retrospective: createGenericMeetingTitle,
-  teamPrompt: createTeamPromptMeetingTitle
+  teamPrompt: createTeamPromptMeetingTitle,
+  teamHealth: createTeamHealthMeetingTitle
+}
+
+// Adaptive Cards render these tokens in each reader's own time zone
+const formatCardDate = (date: Date) => {
+  const fixedTime = date.toISOString().replace(/.\d+Z$/g, 'Z')
+  return `{{DATE(${fixedTime},SHORT)}} at {{TIME(${fixedTime})}}`
+}
+
+const createTextColumnSet = (text: string) => {
+  const columnSet = new AdaptiveCards.ColumnSet()
+  columnSet.spacing = AdaptiveCards.Spacing.ExtraLarge
+  const column = new AdaptiveCards.Column()
+  column.width = 'stretch'
+  const textBlock = new AdaptiveCards.TextBlock(text)
+  textBlock.wrap = true
+  column.addItem(textBlock)
+  columnSet.addColumn(column)
+  return columnSet
+}
+
+const createActionColumnSet = (action: AdaptiveCards.Action) => {
+  const columnSet = new AdaptiveCards.ColumnSet()
+  columnSet.spacing = AdaptiveCards.Spacing.ExtraLarge
+  const column = new AdaptiveCards.Column()
+  column.width = 'stretch'
+  const actionSet = new AdaptiveCards.ActionSet()
+  actionSet.addAction(action)
+  column.addItem(actionSet)
+  columnSet.addColumn(column)
+  return columnSet
 }
 
 const createGenericMeetingAction = (meetingUrl: string) => {
@@ -74,6 +107,15 @@ const createTeamPromptMeetingAction = (meetingUrl: string) => {
   return joinMeetingAction
 }
 
+const createTeamHealthMeetingAction = (meetingUrl: string) => {
+  const respondAction = new AdaptiveCards.OpenUrlAction()
+  respondAction.title = 'Share your responses'
+  respondAction.url = meetingUrl
+  respondAction.id = 'shareResponses'
+
+  return respondAction
+}
+
 const MeetingActionLookup: Record<
   MeetingTypeEnum,
   (meetingUrl: string) => AdaptiveCards.OpenUrlAction
@@ -81,7 +123,8 @@ const MeetingActionLookup: Record<
   action: createGenericMeetingAction,
   poker: createGenericMeetingAction,
   retrospective: createGenericMeetingAction,
-  teamPrompt: createTeamPromptMeetingAction
+  teamPrompt: createTeamPromptMeetingAction,
+  teamHealth: createTeamHealthMeetingAction
 }
 
 export const MSTeamsNotificationHelper: NotificationIntegrationHelper<MSTeamsNotificationAuth> = (
@@ -107,16 +150,17 @@ export const MSTeamsNotificationHelper: NotificationIntegrationHelper<MSTeamsNot
     const meetingDetailColumnSet = GenerateACMeetingAndTeamsDetails(team, meeting)
     card.addItem(meetingDetailColumnSet)
 
-    const meetingLinkColumnSet = new AdaptiveCards.ColumnSet()
-    meetingLinkColumnSet.spacing = AdaptiveCards.Spacing.ExtraLarge
-    const meetingLinkColumn = new AdaptiveCards.Column()
-    meetingLinkColumn.width = 'stretch'
-    const joinMeetingActionSet = new AdaptiveCards.ActionSet()
+    if (meeting.meetingType === 'teamHealth' && meeting.scheduledEndTime) {
+      const questionCount = getTeamHealthQuestionCount(meeting)
+      card.addItem(
+        createTextColumnSet(
+          `${questionCount} questions · about 2 minutes · anonymous. Open until ${formatCardDate(meeting.scheduledEndTime)}, results reveal at close.`
+        )
+      )
+    }
+
     const joinMeetingAction = MeetingActionLookup[meeting.meetingType]!(meetingUrl)
-    joinMeetingActionSet.addAction(joinMeetingAction)
-    meetingLinkColumn.addItem(joinMeetingActionSet)
-    meetingLinkColumnSet.addColumn(meetingLinkColumn)
-    card.addItem(meetingLinkColumnSet)
+    card.addItem(createActionColumnSet(joinMeetingAction))
 
     const adaptiveCard = JSON.stringify(card.toJSON())
 
@@ -309,6 +353,37 @@ export const MSTeamsNotificationHelper: NotificationIntegrationHelper<MSTeamsNot
     const attachments = MakeACAttachment(adaptiveCard)
 
     return notifyMSTeams('MEETING_STAGE_TIME_LIMIT_END', webhookUrl, user, team.id, attachments)
+  },
+  async teamHealthResponseReminder(meeting, team, user, progress) {
+    const {scheduledEndTime} = meeting
+    if (!scheduledEndTime) return 'success'
+    const {webhookUrl} = notificationChannel
+    const {respondentCount, eligibleCount, stragglerNames} = progress
+    const meetingUrl = makeAppURL(appOrigin, `meet/${meeting.id}/respond`, {
+      searchParams: {
+        utm_source: 'MS Teams team health reminder',
+        utm_medium: 'product',
+        utm_campaign: 'notifications'
+      }
+    })
+
+    const card = new AdaptiveCards.AdaptiveCard()
+    card.version = new AdaptiveCards.Version(1.2, 0)
+    card.addItem(
+      GenerateACMeetingTitle(`*${meeting.name}* closes ${formatCardDate(scheduledEndTime)} ⌛`)
+    )
+    card.addItem(GenerateACMeetingAndTeamsDetails(team, meeting))
+    card.addItem(
+      createTextColumnSet(`${respondentCount} of ${eligibleCount} teammates have responded.`)
+    )
+    if (stragglerNames.length > 0) {
+      card.addItem(createTextColumnSet(`Still waiting on: ${stragglerNames.join(', ')}`))
+    }
+    card.addItem(createActionColumnSet(createTeamHealthMeetingAction(meetingUrl)))
+
+    const adaptiveCard = JSON.stringify(card.toJSON())
+    const attachments = MakeACAttachment(adaptiveCard)
+    return notifyMSTeams('TEAM_HEALTH_RESPONSE_DUE', webhookUrl, user, team.id, attachments)
   },
   async integrationUpdated(user) {
     const {webhookUrl, teamId} = notificationChannel

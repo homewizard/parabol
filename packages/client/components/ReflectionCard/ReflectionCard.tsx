@@ -45,7 +45,6 @@ interface Props {
   groupSize?: number
   isExpanded?: boolean
   showReactji?: boolean
-  dataCy?: string
   showDragHintAnimation?: boolean
 }
 
@@ -79,7 +78,6 @@ const ReflectionCard = (props: Props) => {
     groupSize,
     isExpanded,
     showReactji,
-    dataCy,
     showDragHintAnimation
   } = props
   const reflection = useFragment(
@@ -345,19 +343,18 @@ const ReflectionCard = (props: Props) => {
 
   return (
     <ReflectionCardRoot
-      data-cy={`${dataCy}-root`}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       showDragHintAnimation={showDragHintAnimation}
       ref={reflectionDivRef}
-      className='py-2'
+      className={cn('py-2', isClipped && 'bg-surface-raised')}
       onFocus={handleEditorFocus}
       onBlur={handleEditorBlur}
     >
       <ColorBadge phaseType={phaseType as NewMeetingPhaseTypeEnum} reflection={reflection} />
       <div
         ref={scrollRef}
-        className={cn('relative w-full overflow-auto text-slate-700 text-sm leading-5')}
+        className={cn('relative w-full overflow-auto text-fg-primary text-sm leading-5')}
       >
         <TipTapEditor
           className={cn(

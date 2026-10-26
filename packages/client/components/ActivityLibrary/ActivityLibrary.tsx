@@ -24,6 +24,7 @@ import IconLabel from '../IconLabel'
 import LoadingComponent from '../LoadingComponent/LoadingComponent'
 import ActivityGrid from './ActivityGrid'
 import ActivityLibraryEmptyState from './ActivityLibraryEmptyState'
+import ActivityLibrarySimilarTemplates from './ActivityLibrarySimilarTemplates'
 import {
   type AllCategoryID,
   CATEGORY_ID_TO_NAME,
@@ -52,7 +53,7 @@ graphql`
         }
       }
     }
-    ... on ReflectTemplate {
+    ... on PromptTemplate {
       prompts {
         question
         description
@@ -225,6 +226,7 @@ export const ActivityLibrary = (props: Props) => {
   const {availableTemplates} = viewer
 
   const [isSearching, setIsSearching] = useState(true)
+  const [similarTemplatesQuery, setSimilarTemplatesQuery] = useState('')
   const [templateSearch, refetchTemplateSearch] = useRefetchableFragment<
     ActivityLibraryTemplateSearchRefetchQuery,
     ActivityLibraryTemplateSearch_query$key
@@ -255,49 +257,33 @@ export const ActivityLibrary = (props: Props) => {
   const showLoading = dirty || isSearching
 
   useEffect(() => {
-    if (debouncedSearchQuery) {
-      setIsSearching(true)
-      // Avoid suspense while refreshing the search results, see
-      // https://relay.dev/docs/guided-tour/refetching/refetching-fragments-with-different-data/#if-you-need-to-avoid-suspense
-      fetchQuery(atmosphere, templateSearchQuery, {
-        search: debouncedSearchQuery
-      }).subscribe({
-        complete: () => {
-          refetchTemplateSearch({search: debouncedSearchQuery}, {fetchPolicy: 'store-only'})
-          setIsSearching(false)
-        },
-        error: () => {
-          setIsSearching(false)
-        }
-      })
-      SendClientSideEvent(atmosphere, 'Activity Library Searched', {
-        debouncedSearchQuery
-      })
-    } else {
+    if (!debouncedSearchQuery) {
       refetchTemplateSearch({search: ''}, {fetchPolicy: 'store-only'})
       setIsSearching(false)
+      return
     }
+    setIsSearching(true)
+    // Avoid suspense while refreshing the search results, see
+    // https://relay.dev/docs/guided-tour/refetching/refetching-fragments-with-different-data/#if-you-need-to-avoid-suspense
+    const subscription = fetchQuery(atmosphere, templateSearchQuery, {
+      search: debouncedSearchQuery
+    }).subscribe({
+      complete: () => {
+        refetchTemplateSearch({search: debouncedSearchQuery}, {fetchPolicy: 'store-only'})
+        setSimilarTemplatesQuery(debouncedSearchQuery)
+        setIsSearching(false)
+      },
+      error: () => setIsSearching(false)
+    })
+    SendClientSideEvent(atmosphere, 'Activity Library Searched', {debouncedSearchQuery})
+    return () => subscription.unsubscribe()
   }, [debouncedSearchQuery])
 
   const {categoryId} = useParams()
 
   const templatesToRender = useMemo(() => {
     if (searchQuery.length > 0) {
-      // If there's a search query, combine the filtered templates with the search results
-      const searchResults = templateSearch?.viewer?.templateSearch ?? []
-      const doubleMatches = searchResults.filter((searchResult) =>
-        filteredTemplates.find((template) => template.id === searchResult.id)
-      )
-
-      return [
-        ...doubleMatches,
-        ...filteredTemplates.filter(
-          (template) => !doubleMatches.find((doubleMatch) => doubleMatch.id === template.id)
-        ),
-        ...searchResults.filter(
-          (searchResult) => !doubleMatches.find((doubleMatch) => doubleMatch.id === searchResult.id)
-        )
-      ]
+      return filteredTemplates
     }
     if (categoryId === 'favorite') {
       return viewer.favoriteTemplates
@@ -310,16 +296,18 @@ export const ActivityLibrary = (props: Props) => {
           ? template.scope !== 'PUBLIC'
           : template.category === categoryId
     )
-  }, [searchQuery, filteredTemplates, templateSearch, categoryId])
+  }, [searchQuery, filteredTemplates, categoryId])
+
+  const similarTemplates = useMemo(() => {
+    if (!searchQuery || searchQuery !== similarTemplatesQuery) return []
+    const keywordMatchIds = new Set(filteredTemplates.map(({id}) => id))
+    return (templateSearch?.viewer?.templateSearch ?? []).filter(({id}) => !keywordMatchIds.has(id))
+  }, [searchQuery, similarTemplatesQuery, filteredTemplates, templateSearch])
 
   const sectionedTemplates = useMemo(() => {
     // Show the teams on search as well, because you can search by team name
     if (categoryId === CUSTOM_CATEGORY_ID || searchQuery.length > 0) {
       return mapTeamCategories(templatesToRender)
-    }
-
-    if (searchQuery.length > 0) {
-      return undefined
     }
 
     if (categoryId === 'retrospective') {
@@ -336,7 +324,7 @@ export const ActivityLibrary = (props: Props) => {
   }
 
   return (
-    <div className='flex h-full w-full flex-col bg-white'>
+    <div className='flex h-full w-full flex-col bg-surface-card'>
       <div className='mx-2 flex'>
         <div className='hidden items-center justify-start gap-x-2 px-4 lg:flex lg:basis-[15%]'>
           <Link title='My Dashboard' to='/meetings'>
@@ -344,7 +332,7 @@ export const ActivityLibrary = (props: Props) => {
           </Link>
         </div>
 
-        <div className='mt-4 flex flex-1 flex-col items-center border-slate-300 border-b-[1px] border-b-solid pb-4 lg:mr-[15%]'>
+        <div className='mt-4 flex flex-1 flex-col items-center border-hairline border-b-[1px] border-b-solid pb-4 lg:mr-[15%]'>
           <div className='mx-auto flex w-full items-center justify-between gap-14 px-2 md:px-4'>
             <div className='flex items-center'>
               <Link className='mr-6 block lg:hidden' title='My Dashboard' to='/meetings'>
@@ -366,7 +354,7 @@ export const ActivityLibrary = (props: Props) => {
             </div>
 
             <Link
-              className='rounded-full bg-sky-500 px-4 py-2 font-medium text-sm text-white hover:bg-sky-600'
+              className='rounded-md bg-sky-500 px-4 py-2 font-medium text-sm text-white hover:bg-sky-600'
               to={`/activity-library/new-activity/${categoryId}`}
             >
               Create custom activity
@@ -391,27 +379,28 @@ export const ActivityLibrary = (props: Props) => {
               (category) => (
                 <Link
                   className={cn(
-                    'flex shrink-0 cursor-pointer items-center rounded-full px-4 text-slate-800 text-sm leading-9',
+                    'relative flex shrink-0 cursor-pointer items-center rounded-md px-4 text-fg-primary text-sm leading-9',
                     category === categoryId && searchQuery.length === 0
                       ? [
                           `${CategoryIDToColorClass[category]}`,
                           'font-semibold text-white focus:text-white'
                         ]
-                      : 'border border-slate-300 bg-white'
+                      : 'border border-hairline bg-surface-card',
+                    category === 'favorite' &&
+                      (category === categoryId && searchQuery.length === 0
+                        ? 'text-white'
+                        : 'text-tomato-500')
                   )}
                   to={`/activity-library/category/${category}`}
                   onClick={() => resetQuery()}
                   key={category}
-                  style={{
-                    color:
-                      category === 'favorite'
-                        ? category === categoryId && searchQuery.length === 0
-                          ? 'white'
-                          : 'red'
-                        : undefined
-                  }}
                 >
                   {CATEGORY_ID_TO_NAME[category]}
+                  {category === 'teamHealth' && (
+                    <sup className='-top-1 -right-1 absolute rounded-full bg-grape-700 px-1.5 py-0.5 font-semibold text-[10px] text-white leading-none dark:bg-grape-600'>
+                      NEW
+                    </sup>
+                  )}
                 </Link>
               )
             )}
@@ -422,7 +411,7 @@ export const ActivityLibrary = (props: Props) => {
 
       <ScrollArea.Root className='h-full w-full overflow-hidden'>
         <ScrollArea.Viewport className='flex h-full flex-col lg:mx-[15%]'>
-          {templatesToRender.length === 0 && !showLoading ? (
+          {templatesToRender.length === 0 && similarTemplates.length === 0 && !showLoading ? (
             <ActivityLibraryEmptyState
               searchQuery={searchQuery}
               categoryId={categoryId as AllCategoryID}
@@ -435,7 +424,7 @@ export const ActivityLibrary = (props: Props) => {
                     subCategoryTemplates.length > 0 ? (
                       <Fragment key={subCategory}>
                         {subCategory && (
-                          <div className='mt-8 ml-4 font-bold text-slate-700 text-xl'>
+                          <div className='mt-8 ml-4 font-bold text-fg-primary text-xl'>
                             {subCategory}
                           </div>
                         )}
@@ -465,13 +454,18 @@ export const ActivityLibrary = (props: Props) => {
               )}
             </>
           )}
+          <ActivityLibrarySimilarTemplates
+            templates={similarTemplates}
+            selectedCategory={categoryId}
+            viewerRef={viewer}
+          />
           {showLoading && <LoadingComponent />}
         </ScrollArea.Viewport>
         <ScrollArea.Scrollbar
           orientation='vertical'
           className='flex h-full w-2.5 touch-none select-none border-l border-l-transparent p-[1px] transition-colors'
         >
-          <ScrollArea.Thumb className={`relative flex-1 rounded-full bg-slate-600`} />
+          <ScrollArea.Thumb className={`relative flex-1 rounded-full bg-fg-secondary`} />
         </ScrollArea.Scrollbar>
       </ScrollArea.Root>
     </div>

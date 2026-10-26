@@ -22,14 +22,14 @@ graphql`
 `
 
 const mutation = graphql`
-  mutation DeleteCommentMutation($commentId: ID!, $meetingId: ID!) {
+  mutation DeleteCommentMutation($commentId: ID!, $meetingId: ID!) @raw_response_type {
     deleteComment(commentId: $commentId, meetingId: $meetingId) {
       ... on ErrorPayload {
         error {
           message
         }
       }
-      ...DeleteCommentMutation_meeting @relay(mask: false)
+      ...DeleteCommentMutation_meeting @relay(mask: false) @alias
     }
   }
 `

@@ -7,7 +7,8 @@ import {
 import {addCommentMeetingUpdater} from '~/mutations/AddCommentMutation'
 import {createPollMeetingUpdater} from '~/mutations/CreatePollMutation'
 import {deleteCommentMeetingUpdater} from '~/mutations/DeleteCommentMutation'
-import {upsertTeamPromptResponseUpdater} from '~/mutations/UpsertTeamPromptResponseMutation'
+import {shareTeamPromptResponsesMeetingUpdater} from '~/mutations/useShareTeamPromptResponsesMutation'
+import {upsertTeamPromptResponseMeetingUpdater} from '~/mutations/useUpsertTeamPromptResponseMutation'
 import Atmosphere from '../Atmosphere'
 import {createReflectionMeetingUpdater} from '../mutations/CreateReflectionMutation'
 import {dragDiscussionTopicMeetingUpdater} from '../mutations/DragDiscussionTopicMutation'
@@ -17,12 +18,13 @@ import {
   endDraggingReflectionMeetingUpdater
 } from '../mutations/EndDraggingReflectionMutation'
 import {pokerAnnounceDeckHoverMeetingUpdater} from '../mutations/PokerAnnounceDeckHoverMutation'
-import {promoteNewMeetingFacilitatorMeetingOnNext} from '../mutations/PromoteNewMeetingFacilitatorMutation'
 import {removeReflectionMeetingUpdater} from '../mutations/RemoveReflectionMutation'
 import {resetRetroMeetingToGroupStageUpdater} from '../mutations/ResetRetroMeetingToGroupStageMutation'
 import {setMeetingMusicMeetingUpdater} from '../mutations/SetMeetingMusicMutation'
 import {setStageTimerMeetingUpdater} from '../mutations/SetStageTimerMutation'
 import {startDraggingReflectionMeetingUpdater} from '../mutations/StartDraggingReflectionMutation'
+import {suggestedGroupsMeetingUpdater} from '../mutations/useGenerateSuggestedGroupsMutation'
+import {updateFacilitatorRotationMeetingOnNext} from '../mutations/useUpdateFacilitatorRotationMutation'
 import {createSubscription} from './createSubscription'
 
 const subscription = graphql`
@@ -41,11 +43,8 @@ const subscription = graphql`
       UngroupReflectionSuccess {
         ...UngroupReflectionMutation_meeting @relay(mask: false)
       }
-      GenerateGroupsSuccess {
-        ...GenerateGroupsFrag_meeting @relay(mask: false)
-      }
-      UpdateMeetingPromptSuccess {
-        ...UpdateMeetingPromptMutation_meeting @relay(mask: false)
+      SuggestedGroupsSuccess {
+        ...useGenerateSuggestedGroupsMutation_meeting @relay(mask: false)
       }
       SetTaskEstimateSuccess {
         ...SetTaskEstimateMutation_meeting @relay(mask: false)
@@ -101,11 +100,14 @@ const subscription = graphql`
       EndTeamPromptSuccess {
         ...EndTeamPromptMutation_meeting @relay(mask: false)
       }
+      EndTeamHealthSuccess {
+        ...useEndTeamHealthMutation_meeting @relay(mask: false)
+      }
       FlagReadyToAdvanceSuccess {
         ...FlagReadyToAdvanceMutation_meeting @relay(mask: false)
       }
-      PromoteNewMeetingFacilitatorPayload {
-        ...PromoteNewMeetingFacilitatorMutation_meeting @relay(mask: false)
+      UpdateFacilitatorRotationSuccess {
+        ...useUpdateFacilitatorRotationMutation_meeting @relay(mask: false)
       }
       RemoveReflectionPayload {
         ...RemoveReflectionMutation_meeting @relay(mask: false)
@@ -125,8 +127,23 @@ const subscription = graphql`
       SetTeamHealthVoteSuccess {
         ...SetTeamHealthVoteMutation_meeting @relay(mask: false)
       }
+      DragTeamHealthResultStageSuccess {
+        ...useDragTeamHealthResultStageMutation_meeting @relay(mask: false)
+      }
+      SetTeamHealthResponseSuccess {
+        ...useSetTeamHealthResponseMutation_meeting @relay(mask: false)
+      }
+      SetTeamHealthSpectateSuccess {
+        ...useSetTeamHealthSpectateMutation_meeting @relay(mask: false)
+      }
       StartDraggingReflectionPayload {
         ...StartDraggingReflectionMutation_meeting @relay(mask: false)
+      }
+      TeamHealthCategorySummarySuccess {
+        stage {
+          id
+          ...TeamHealthResultCard_stage
+        }
       }
       SetMeetingMusicSuccess {
         ...SetMeetingMusicMutation_meeting @relay(mask: false)
@@ -144,7 +161,7 @@ const subscription = graphql`
         ...UpdateDragLocationMutation_meeting @relay(mask: false)
       }
       UpdatePokerScopeSuccess {
-        ...UpdatePokerScopeMutation_meeting @relay(mask: false)
+        ...useUpdatePokerScopeMutation_meeting @relay(mask: false)
       }
       UpdateReflectionContentPayload {
         ...UpdateReflectionContentMutation_meeting @relay(mask: false)
@@ -162,13 +179,10 @@ const subscription = graphql`
         ...VoteForReflectionGroupMutation_meeting @relay(mask: false)
       }
       UpsertTeamPromptResponseSuccess {
-        ...UpsertTeamPromptResponseMutation_meeting @relay(mask: false)
+        ...useUpsertTeamPromptResponseMutation_meeting @relay(mask: false)
       }
-      ReflectionEmbeddingSuccess {
-        reflection {
-          id
-          embeddingVector
-        }
+      ShareTeamPromptResponsesSuccess {
+        ...useShareTeamPromptResponsesMutation_meeting @relay(mask: false)
       }
     }
   }
@@ -176,7 +190,7 @@ const subscription = graphql`
 
 const onNextHandlers = {
   EndDraggingReflectionPayload: endDraggingReflectionMeetingOnNext,
-  PromoteNewMeetingFacilitatorPayload: promoteNewMeetingFacilitatorMeetingOnNext
+  UpdateFacilitatorRotationSuccess: updateFacilitatorRotationMeetingOnNext
 } as const
 
 const updateHandlers = {
@@ -192,8 +206,10 @@ const updateHandlers = {
   ResetRetroMeetingToGroupStagePayload: resetRetroMeetingToGroupStageUpdater,
   StartDraggingReflectionPayload: startDraggingReflectionMeetingUpdater,
   PokerAnnounceDeckHoverSuccess: pokerAnnounceDeckHoverMeetingUpdater,
-  UpsertTeamPromptResponseSuccess: upsertTeamPromptResponseUpdater,
-  SetMeetingMusicSuccess: setMeetingMusicMeetingUpdater
+  UpsertTeamPromptResponseSuccess: upsertTeamPromptResponseMeetingUpdater,
+  ShareTeamPromptResponsesSuccess: shareTeamPromptResponsesMeetingUpdater,
+  SetMeetingMusicSuccess: setMeetingMusicMeetingUpdater,
+  SuggestedGroupsSuccess: suggestedGroupsMeetingUpdater
 } as const
 
 const invalidator = (environment: Atmosphere, variables: MeetingSubscription$variables) => {

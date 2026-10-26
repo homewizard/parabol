@@ -23,14 +23,14 @@ graphql`
 `
 
 const mutation = graphql`
-  mutation AddCommentMutation($comment: AddCommentInput!) {
+  mutation AddCommentMutation($comment: AddCommentInput!) @raw_response_type {
     addComment(comment: $comment) {
       ... on ErrorPayload {
         error {
           message
         }
       }
-      ...AddCommentMutation_meeting @relay(mask: false)
+      ...AddCommentMutation_meeting @relay(mask: false) @alias
     }
   }
 `
@@ -41,8 +41,8 @@ export const addCommentMeetingUpdater: SharedUpdater<AddCommentMutation_meeting$
 ) => {
   const meetingId = payload.getValue('meetingId')
   const meeting = store.get(meetingId)
-  const isRightDrawerOpen = meeting?.getValue('isRightDrawerOpen')
-  if (isRightDrawerOpen === false) {
+  const rightDrawerOpen = meeting?.getValue('rightDrawerOpen')
+  if (rightDrawerOpen == null) {
     meeting?.setValue(true, 'isCommentUnread')
   }
   const comment = payload.getLinkedRecord('comment')

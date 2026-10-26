@@ -1,13 +1,15 @@
-import DeleteIcon from '@mui/icons-material/Delete'
-import DescriptionIcon from '@mui/icons-material/Description'
-import FileOpenIcon from '@mui/icons-material/FileOpen'
-import MoreVertIcon from '@mui/icons-material/MoreVert'
-import NorthEastIcon from '@mui/icons-material/NorthEast'
-import StorageIcon from '@mui/icons-material/Storage'
 import {NodeSelection} from '@tiptap/pm/state'
 import {type NodeViewProps, NodeViewWrapper} from '@tiptap/react'
 import {useClientQuery} from 'react-relay'
 import {Link} from 'react-router'
+import {
+  Delete as DeleteIcon,
+  Description as DescriptionIcon,
+  FileOpen as FileOpenIcon,
+  MoreVert as MoreVertIcon,
+  NorthEast as NorthEastIcon,
+  Storage as StorageIcon
+} from '~/ui/icons'
 import pageDropTargetQuery, {
   type PageDropTargetQuery
 } from '../../../__generated__/PageDropTargetQuery.graphql'
@@ -94,7 +96,7 @@ export const PageLinkBlockView = (props: NodeViewProps) => {
     // ProseMirror-selectednode goes away if the cursor is in between nodes, which is what we want
     <NodeViewWrapper
       className={
-        'group rounded-sm p-1 transition-colors hover:bg-slate-200 group-[.ProseMirror-selectednode]:bg-slate-200'
+        'group rounded-sm p-1 transition-colors hover:bg-surface-hover group-[.ProseMirror-selectednode]:bg-surface-hover'
       }
     >
       <PageDropTarget data-drop-in={canDropIn ? pageKey : undefined}>
@@ -110,11 +112,11 @@ export const PageLinkBlockView = (props: NodeViewProps) => {
             <span className='relative inline-flex size-6 shrink-0 items-center justify-center'>
               <span className='text-base leading-none'>{emoji}</span>
               {!canonical && (
-                <NorthEastIcon className='absolute right-0 bottom-0 size-3 text-slate-500' />
+                <NorthEastIcon className='absolute right-0 bottom-0 size-3 text-fg-muted' />
               )}
             </span>
           ) : (
-            Icon && <Icon className='text-slate-600' />
+            Icon && <Icon className='text-fg-secondary' />
           )}
           <div className='flex-1 pl-1'>
             {(emoji ? stripPageEmoji(title, emoji) : title) || '<Untitled>'}
@@ -129,10 +131,14 @@ export const PageLinkBlockView = (props: NodeViewProps) => {
               <div className='flex items-center pr-1'>
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <MoreVertIcon
-                      className='size-5 opacity-0 transition-opacity delay-200 group-hover:opacity-100 group-[&:not(:hover)]:delay-0'
+                    <button
+                      type='button'
+                      aria-label={'More page actions'}
+                      className='flex size-5 cursor-pointer items-center justify-center opacity-0 transition-opacity delay-200 group-hover:opacity-100 group-[&:not(:hover)]:delay-0'
                       onMouseDown={focusLink}
-                    />
+                    >
+                      <MoreVertIcon className='size-5' />
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent side={'bottom'}>{'More page actions'}</TooltipContent>
                 </Tooltip>
@@ -146,7 +152,7 @@ export const PageLinkBlockView = (props: NodeViewProps) => {
                   e.stopPropagation()
                 }}
               >
-                <DeleteIcon className='text-slate-600' />
+                <DeleteIcon className='text-fg-secondary' />
                 <span className='pl-1'>{'Delete page'}</span>
               </MenuItem>
             </MenuContent>
